@@ -6,7 +6,7 @@ export async function writeToGoogleSheets(
   try {
     // Check for required environment variables
     const clientEmail = process.env.GOOGLE_CLIENT_EMAIL;
-    const privateKey = process.env.GOOGLE_PRIVATE_KEY?.replace(/\\n/g, "\n");
+    const privateKey = process.env.GOOGLE_PRIVATE_KEY;
     const spreadsheetId = process.env.SPREADSHEET_ID;
 
     if (!clientEmail || !privateKey || !spreadsheetId) {
@@ -31,7 +31,7 @@ export async function writeToGoogleSheets(
     // Add data to the sheet
     const response = await sheets.spreadsheets.values.append({
       spreadsheetId,
-      range: "Sheet1!A:B", // Adjust based on your sheet structure
+      range: "Sheet1!A2:A39", // Adjust based on your sheet structure
       valueInputOption: "USER_ENTERED",
       insertDataOption: "INSERT_ROWS",
       requestBody: {

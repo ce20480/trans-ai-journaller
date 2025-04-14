@@ -1,5 +1,13 @@
 import { NextRequest, NextResponse } from "next/server";
-import { sign } from "jsonwebtoken";
+import { createToken, JWTPayload } from "@/utils/auth";
+
+// Log environment status on first load
+console.log("Auth API Environment Check:", {
+  JWT_SECRET_SET: !!process.env.JWT_SECRET,
+  AUTH_USERNAME_SET: !!process.env.AUTH_USERNAME,
+  AUTH_PASSWORD_SET: !!process.env.AUTH_PASSWORD,
+  NODE_ENV: process.env.NODE_ENV,
+});
 
 const USERS = [
   {
@@ -32,12 +40,11 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Generate JWT token
-    const token = sign(
-      { username: user.username },
-      process.env.JWT_SECRET || "default-secret-change-in-production",
-      { expiresIn: "24h" }
-    );
+    // Generate JWT token using jose
+    const payload: JWTPayload = { username: user.username };
+    const token = await createToken(payload);
+
+    console.log("Token generated for user:", user.username);
 
     // Set HTTP-only cookie with the token
     const response = NextResponse.json({ success: true });
@@ -47,7 +54,16 @@ export async function POST(request: NextRequest) {
       httpOnly: true,
       secure: process.env.NODE_ENV === "production",
       sameSite: "strict",
+      path: "/",
       maxAge: 60 * 60 * 24, // 24 hours
+    });
+
+    console.log("Cookie set:", {
+      name: "auth_token",
+      value: token.substring(0, 10) + "...",
+      httpOnly: true,
+      secure: process.env.NODE_ENV === "production",
+      sameSite: "strict",
     });
 
     return response;
