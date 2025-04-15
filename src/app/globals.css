@@ -3,10 +3,11 @@
 :root {
   --background: #ffffff;
   --foreground: #111827; /* Dark Gray */
-  --primary: #0d9488; /* Teal */
-  --primary-hover: #0f766e; /* Darker Teal */
-  --secondary: #f0fdfa; /* Very Light Teal */
-  --accent: #a5f3fc; /* Light Cyan */
+  --primary: #facc15; /* CTA Yellow */
+  --primary-hover: #fde047; /* CTA Hover Yellow */
+  --secondary: #f8f8f8;
+  --accent: #facc15;
+  --card-bg: #f0f0f0;
 }
 
 @theme inline {
@@ -19,12 +20,14 @@
 
 @media (prefers-color-scheme: dark) {
   :root {
-    --background: #1f2937; /* Dark Slate Gray */
-    --foreground: #f9fafb; /* Off White */
-    --primary: #2dd4bf; /* Bright Teal */
-    --primary-hover: #5eead4; /* Lighter Teal */
-    --secondary: #374151; /* Darker Slate Gray */
-    --accent: #67e8f9; /* Bright Cyan */
+    --background: #0d0d0d; /* Dark background */
+    --foreground: #ffffff; /* Primary text */
+    --primary: #facc15; /* CTA Yellow */
+    --primary-hover: #fde047; /* CTA Hover Yellow */
+    --secondary: #1a1a1a; /* Accent background */
+    --accent: #facc15; /* Yellow accent */
+    --card-bg: #262626; /* Card backgrounds */
+    --text-secondary: #b3b3b3; /* Secondary text */
   }
 }
 

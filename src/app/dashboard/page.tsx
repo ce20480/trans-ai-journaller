@@ -301,38 +301,22 @@ export default function Dashboard() {
   // Show loading state while checking authentication
   if (isAuthenticated === null) {
     return (
-      <div className="min-h-screen flex flex-col justify-center items-center bg-gradient-to-br from-teal-50 to-cyan-100 dark:from-gray-800 dark:to-gray-900">
+      <div className="min-h-screen flex flex-col justify-center items-center bg-[#0d0d0d]">
         {/* Simple loading spinner */}
-        <div className="animate-spin rounded-full h-16 w-16 border-t-4 border-b-4 border-primary"></div>
-        <p className="mt-4 text-lg text-gray-700 dark:text-gray-300">
-          Loading Dashboard...
-        </p>
+        <div className="animate-spin rounded-full h-16 w-16 border-t-4 border-b-4 border-[#facc15]"></div>
+        <p className="mt-4 text-lg text-white">Loading Dashboard...</p>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-gray-100 dark:bg-gray-900">
+    <div className="min-h-screen bg-[#0d0d0d]">
       {/* Header */}
-      <header className="bg-white dark:bg-gray-800 shadow-md sticky top-0 z-40 border-b border-gray-200 dark:border-gray-700">
-        <div className="container mx-auto px-6 py-4 flex justify-between items-center">
+      <header className="bg-[#1a1a1a] shadow-md sticky top-0 z-40 border-b border-[#262626]">
+        <div className="container mx-auto px-6 py-3 flex justify-between items-center">
           <Link href="/" className="flex items-center gap-2 group">
-            {/* Replace with actual logo if available */}
-            <svg
-              className="w-8 h-8 text-primary dark:text-primary"
-              fill="none"
-              viewBox="0 0 24 24"
-              stroke="currentColor"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth="2"
-                d="M7 7h.01M7 3h5c.53 0 1.04.21 1.41.59L18 8h5v13H1V3h6zM1 14h6m-6 4h6m7-4h6"
-              />
-            </svg>
-            <span className="text-xl font-bold text-gray-800 dark:text-white group-hover:text-primary dark:group-hover:text-primary transition-colors duration-300">
-              TransAI Dashboard
+            <span className="text-xl font-bold text-white group-hover:text-[#facc15] transition-colors duration-300">
+              T2A Dashboard
             </span>
           </Link>
           <button
@@ -352,7 +336,7 @@ export default function Dashboard() {
                 router.push("/login");
               }
             }}
-            className="text-sm text-gray-600 dark:text-gray-300 hover:text-primary dark:hover:text-primary transition-colors font-medium"
+            className="text-sm bg-[#262626] text-white hover:text-[#facc15] px-4 py-1.5 rounded-full transition-colors"
           >
             Logout
           </button>
@@ -361,16 +345,16 @@ export default function Dashboard() {
 
       {/* Main Content */}
       <main className="container mx-auto px-6 py-10">
-        <div className="max-w-4xl mx-auto bg-white dark:bg-gray-800 rounded-xl shadow-xl overflow-hidden">
-          <div className="bg-gradient-to-r from-teal-500 to-cyan-500 dark:from-teal-600 dark:to-cyan-600 p-6">
+        <div className="max-w-4xl mx-auto bg-[#262626] rounded-xl shadow-xl overflow-hidden border border-[#373737]">
+          <div className="bg-[#1a1a1a] p-6 border-b border-[#373737]">
             <h1 className="text-2xl font-bold text-white text-center">
-              Media Transcription & Analysis
+              Capture Your Thoughts
             </h1>
           </div>
 
           <div className="p-8">
             {error && (
-              <div className="mb-6 p-4 bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-300 rounded-lg border border-red-200 dark:border-red-700 shadow-sm">
+              <div className="mb-6 p-4 bg-red-900/30 text-red-300 rounded-lg border border-red-700 shadow-sm">
                 <p className="font-bold">Error: {error}</p>
                 {errorDetails && (
                   <p className="mt-1 text-sm">Details: {errorDetails}</p>
@@ -384,95 +368,150 @@ export default function Dashboard() {
             )}
 
             <div className="mb-6">
-              <h2 className="text-lg font-semibold text-gray-800 dark:text-white mb-4">
+              <h2 className="text-xl font-semibold text-white mb-4">
                 Choose Input Method
               </h2>
 
-              <div className="grid md:grid-cols-2 gap-4">
+              <div className="grid md:grid-cols-2 gap-6">
                 {/* File Upload Panel */}
-                <div className="bg-secondary dark:bg-gray-700 p-6 rounded-lg shadow-md">
-                  <h3 className="text-md font-semibold mb-4 text-gray-800 dark:text-white">
+                <div className="bg-[#1a1a1a] p-6 rounded-lg shadow-md border border-[#373737]">
+                  <h3 className="text-md font-semibold mb-4 text-white flex items-center">
+                    <svg
+                      className="w-5 h-5 mr-2 text-[#facc15]"
+                      fill="none"
+                      viewBox="0 0 24 24"
+                      stroke="currentColor"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth="2"
+                        d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"
+                      />
+                    </svg>
                     Upload Audio/Video File
                   </h3>
 
-                  <div className="flex justify-center px-4 pt-4 pb-4 border-2 border-gray-300 dark:border-gray-600 border-dashed rounded-lg bg-gray-50 dark:bg-gray-700/50 hover:border-primary dark:hover:border-primary transition-colors">
-                    <div className="space-y-1 text-center">
-                      <svg
-                        className="mx-auto h-10 w-10 text-gray-400 dark:text-gray-500"
-                        stroke="currentColor"
-                        fill="none"
-                        viewBox="0 0 48 48"
-                        aria-hidden="true"
-                      >
-                        <path
-                          d="M28 8H12a4 4 0 00-4 4v20m32-12v8m0 0v8a4 4 0 01-4 4H12a4 4 0 01-4-4v-4m32-4l-3.172-3.172a4 4 0 00-5.656 0L28 28M8 32l9.172-9.172a4 4 0 015.656 0L28 28m0 0l4 4m4-24h8m-4-4v8m-12 4h.02"
-                          strokeWidth="2"
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                        />
-                      </svg>
-                      <div className="flex text-sm text-gray-600 dark:text-gray-400 justify-center">
-                        <label
-                          htmlFor="file-upload"
-                          className="relative cursor-pointer bg-white dark:bg-gray-700 rounded-md font-medium text-primary dark:text-accent hover:text-primary-hover focus-within:outline-none focus-within:ring-2 focus-within:ring-offset-2 focus-within:ring-primary px-2 py-1"
-                        >
-                          <span>
-                            {file && !audioBlob
-                              ? "Change file"
-                              : "Upload a file"}
-                          </span>
-                          <input
-                            id="file-upload"
-                            name="file-upload"
-                            type="file"
-                            className="sr-only"
-                            ref={fileInputRef}
-                            onChange={handleFileChange}
-                            accept="audio/mpeg,audio/mp4,audio/wav,audio/ogg,audio/webm,video/mp4,video/webm,video/ogg,video/quicktime"
-                            disabled={
-                              isUploading || isProcessing || isRecording
-                            }
-                          />
-                        </label>
-                      </div>
+                  <div
+                    className={`flex justify-center px-4 pt-5 pb-6 border-2 ${
+                      file && !audioBlob
+                        ? "border-[#facc15]"
+                        : "border-[#373737]"
+                    } border-dashed rounded-lg bg-[#0d0d0d] hover:border-[#facc15] transition-colors cursor-pointer`}
+                    onClick={() =>
+                      !isUploading &&
+                      !isProcessing &&
+                      !isRecording &&
+                      fileInputRef.current?.click()
+                    }
+                  >
+                    <div className="space-y-2 text-center">
                       {file && !audioBlob ? (
-                        <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-                          Selected: {file.name} (
-                          {(file.size / (1024 * 1024)).toFixed(2)} MB)
-                        </p>
+                        <>
+                          <div className="text-[#facc15] mx-auto h-12 w-12 flex items-center justify-center rounded-full bg-[#facc15]/10">
+                            <svg
+                              className="h-8 w-8"
+                              fill="none"
+                              viewBox="0 0 24 24"
+                              stroke="currentColor"
+                            >
+                              <path
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                                strokeWidth="2"
+                                d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
+                              />
+                            </svg>
+                          </div>
+                          <div className="flex text-sm justify-center mt-2">
+                            <span className="relative bg-[#262626] rounded-md font-medium text-[#facc15] hover:text-[#fde047] px-3 py-1">
+                              Change file
+                            </span>
+                          </div>
+                          <p className="text-[#b3b3b3] font-medium text-sm mt-1">
+                            {file.name}
+                          </p>
+                          <p className="text-xs text-[#b3b3b3]">
+                            {(file.size / (1024 * 1024)).toFixed(2)} MB
+                          </p>
+                        </>
                       ) : (
-                        <p className="text-xs text-gray-500 dark:text-gray-400">
-                          MP3, MP4, WAV, OGG, WebM, MOV
-                        </p>
+                        <>
+                          <svg
+                            className="mx-auto h-12 w-12 text-[#b3b3b3]"
+                            stroke="currentColor"
+                            fill="none"
+                            viewBox="0 0 48 48"
+                            aria-hidden="true"
+                          >
+                            <path
+                              d="M28 8H12a4 4 0 00-4 4v20m32-12v8m0 0v8a4 4 0 01-4 4H12a4 4 0 01-4-4v-4m32-4l-3.172-3.172a4 4 0 00-5.656 0L28 28M8 32l9.172-9.172a4 4 0 015.656 0L28 28m0 0l4 4m4-24h8m-4-4v8m-12 4h.02"
+                              strokeWidth="2"
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                            />
+                          </svg>
+                          <div className="flex text-sm justify-center">
+                            <span className="relative bg-[#262626] rounded-md font-medium text-[#facc15] hover:text-[#fde047] px-3 py-1">
+                              Upload a file
+                            </span>
+                          </div>
+                          <p className="text-xs text-[#b3b3b3] mt-1">
+                            MP3, MP4, WAV, OGG, WebM, MOV
+                          </p>
+                        </>
                       )}
+                      <input
+                        id="file-upload"
+                        name="file-upload"
+                        type="file"
+                        className="sr-only"
+                        ref={fileInputRef}
+                        onChange={handleFileChange}
+                        accept="audio/mpeg,audio/mp4,audio/wav,audio/ogg,audio/webm,video/mp4,video/webm,video/ogg,video/quicktime"
+                        disabled={isUploading || isProcessing || isRecording}
+                      />
                     </div>
                   </div>
                 </div>
 
                 {/* Audio Recording Panel */}
-                <div className="bg-secondary dark:bg-gray-700 p-6 rounded-lg shadow-md">
-                  <h3 className="text-md font-semibold mb-4 text-gray-800 dark:text-white">
+                <div className="bg-[#1a1a1a] p-6 rounded-lg shadow-md border border-[#373737]">
+                  <h3 className="text-md font-semibold mb-4 text-white flex items-center">
+                    <svg
+                      className="w-5 h-5 mr-2 text-[#facc15]"
+                      fill="none"
+                      viewBox="0 0 24 24"
+                      stroke="currentColor"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth="2"
+                        d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z"
+                      />
+                    </svg>
                     Record Audio
                   </h3>
 
                   <div className="flex flex-col items-center justify-center h-full">
                     {/* Recording interface */}
                     <div className="relative w-full">
-                      <div className="flex items-center justify-center space-x-4 mb-2">
+                      <div className="flex items-center justify-center space-x-4 mb-4">
                         {!isRecording ? (
                           <button
                             type="button"
                             onClick={startRecording}
                             disabled={isUploading || isProcessing}
-                            className={`flex items-center justify-center w-12 h-12 rounded-full ${
+                            className={`flex items-center justify-center w-14 h-14 rounded-full ${
                               isUploading || isProcessing
-                                ? "bg-red-300 cursor-not-allowed"
-                                : "bg-red-500 hover:bg-red-600 focus:ring-2 focus:ring-offset-2 focus:ring-red-500"
+                                ? "bg-red-800 cursor-not-allowed opacity-50"
+                                : "bg-red-600 hover:bg-red-700 focus:ring-2 focus:ring-offset-2 focus:ring-red-500"
                             }`}
                           >
                             <span className="sr-only">Start recording</span>
                             <svg
-                              className="w-6 h-6 text-white"
+                              className="w-7 h-7 text-white"
                               fill="currentColor"
                               viewBox="0 0 20 20"
                             >
@@ -483,11 +522,11 @@ export default function Dashboard() {
                           <button
                             type="button"
                             onClick={stopRecording}
-                            className="flex items-center justify-center w-12 h-12 bg-gray-100 dark:bg-gray-600 rounded-full hover:bg-gray-200 dark:hover:bg-gray-500 focus:ring-2 focus:ring-offset-2 focus:ring-gray-500"
+                            className="flex items-center justify-center w-14 h-14 bg-[#262626] rounded-full hover:bg-[#373737] focus:ring-2 focus:ring-offset-2 focus:ring-red-500"
                           >
                             <span className="sr-only">Stop recording</span>
                             <svg
-                              className="w-5 h-5 text-gray-700 dark:text-white"
+                              className="w-6 h-6 text-white"
                               fill="currentColor"
                               viewBox="0 0 20 20"
                             >
@@ -499,17 +538,17 @@ export default function Dashboard() {
                         <div className="text-center">
                           {isRecording ? (
                             <div className="flex items-center">
-                              <div className="animate-pulse mr-2 h-2 w-2 rounded-full bg-red-500"></div>
-                              <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                              <div className="animate-pulse mr-2 h-3 w-3 rounded-full bg-red-500"></div>
+                              <span className="text-md font-medium text-white">
                                 Recording: {formatTime(recordingTime)}
                               </span>
                             </div>
                           ) : audioURL ? (
-                            <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
-                              Recording complete: {formatTime(recordingTime)}
+                            <span className="text-md font-medium text-white">
+                              Recording ready: {formatTime(recordingTime)}
                             </span>
                           ) : (
-                            <span className="text-sm text-gray-500 dark:text-gray-400">
+                            <span className="text-md text-[#b3b3b3]">
                               Click to start recording
                             </span>
                           )}
@@ -518,11 +557,11 @@ export default function Dashboard() {
 
                       {/* Audio player */}
                       {audioURL && (
-                        <div className="mt-3 flex justify-center">
+                        <div className="mt-4 flex justify-center p-3 bg-[#0d0d0d] rounded-lg border border-[#373737]">
                           <audio
                             src={audioURL}
                             controls
-                            className="w-full h-8 max-w-xs"
+                            className="w-full h-10 max-w-xs"
                           />
                         </div>
                       )}
@@ -541,19 +580,19 @@ export default function Dashboard() {
                   isProcessing ||
                   isRecording
                 }
-                className={`w-full flex justify-center py-3 px-4 border border-transparent rounded-lg shadow-sm text-sm font-medium text-white transition-colors duration-150 ${
+                className={`w-full flex justify-center py-4 px-4 border border-transparent rounded-lg shadow-sm text-md font-medium transition-all ${
                   (!file && !audioBlob) ||
                   isUploading ||
                   isProcessing ||
                   isRecording
-                    ? "bg-teal-300 dark:bg-teal-800 cursor-not-allowed"
-                    : "bg-primary hover:bg-primary-hover dark:bg-primary dark:hover:bg-primary-hover focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary"
+                    ? "bg-[#373737] text-[#b3b3b3] cursor-not-allowed"
+                    : "bg-[#facc15] hover:bg-[#fde047] text-black hover:shadow-[#facc15]/20 hover:translate-y-[-2px]"
                 }`}
               >
                 {isUploading || isProcessing ? (
                   <span className="flex items-center">
                     <svg
-                      className="animate-spin -ml-1 mr-2 h-4 w-4 text-white"
+                      className="animate-spin -ml-1 mr-2 h-5 w-5"
                       xmlns="http://www.w3.org/2000/svg"
                       fill="none"
                       viewBox="0 0 24 24"
@@ -573,25 +612,40 @@ export default function Dashboard() {
                       ></path>
                     </svg>
                     {currentStep === "uploading"
-                      ? "Uploading..."
-                      : "Processing..."}
+                      ? "Uploading your thoughts..."
+                      : "Processing your insights..."}
                   </span>
                 ) : (
-                  "Process & Generate Summary"
+                  <span className="flex items-center">
+                    <svg
+                      className="w-5 h-5 mr-2"
+                      fill="none"
+                      viewBox="0 0 24 24"
+                      stroke="currentColor"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth="2"
+                        d="M13 10V3L4 14h7v7l9-11h-7z"
+                      />
+                    </svg>
+                    Turn Thoughts to Action
+                  </span>
                 )}
               </button>
 
               {isProcessing && (
-                <div className="text-center pt-4 border-t border-gray-200 dark:border-gray-700">
-                  <div className="inline-block animate-spin rounded-full h-6 w-6 border-t-2 border-b-2 border-primary mb-2"></div>
-                  <p className="text-sm text-gray-600 dark:text-gray-400">
+                <div className="text-center pt-4 border-t border-[#373737]">
+                  <div className="inline-block animate-spin rounded-full h-6 w-6 border-t-2 border-b-2 border-[#facc15] mb-2"></div>
+                  <p className="text-sm text-[#b3b3b3]">
                     Processing step:{" "}
-                    <span className="font-medium text-primary dark:text-accent">
+                    <span className="font-medium text-[#facc15]">
                       {currentStep}
                     </span>
                     ...
                   </p>
-                  <p className="text-xs text-gray-500 dark:text-gray-500 mt-1">
+                  <p className="text-xs text-[#b3b3b3] mt-1">
                     This might take a few moments.
                   </p>
                 </div>
@@ -599,21 +653,51 @@ export default function Dashboard() {
             </form>
 
             {summary.length > 0 && (
-              <div className="mt-10 border-t border-gray-200 dark:border-gray-700 pt-8">
-                <h2 className="text-xl font-semibold mb-4 text-gray-900 dark:text-white">
+              <div className="mt-10 border-t border-[#373737] pt-8">
+                <h2 className="text-xl font-semibold mb-4 text-white flex items-center">
+                  <svg
+                    className="w-5 h-5 mr-2 text-[#facc15]"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                    stroke="currentColor"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth="2"
+                      d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
+                    />
+                  </svg>
                   Generated Summary
                 </h2>
-                <div className="bg-secondary dark:bg-gray-700 p-6 rounded-lg shadow-inner">
-                  <ul className="list-disc pl-5 space-y-2 text-gray-700 dark:text-gray-200">
+                <div className="bg-[#1a1a1a] p-6 rounded-lg shadow-inner border border-[#373737]">
+                  <ul className="list-disc pl-5 space-y-3 text-[#b3b3b3]">
                     {summary.map((point, index) => (
-                      <li key={index}>{point}</li>
+                      <li
+                        key={index}
+                        className="pb-2 border-b border-[#262626] last:border-0"
+                      >
+                        {point}
+                      </li>
                     ))}
                   </ul>
                 </div>
-                <div className="mt-4 text-sm text-gray-600 dark:text-gray-400 text-center">
+                <div className="mt-6 text-sm flex items-center justify-center text-[#b3b3b3] bg-[#262626] p-3 rounded-lg">
+                  <svg
+                    className="w-5 h-5 mr-2 text-[#facc15]"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                    stroke="currentColor"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth="2"
+                      d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"
+                    />
+                  </svg>
                   <p>
-                    ✅ Summary points saved to Google Sheet: &apos;Idea
-                    Sheet&apos;
+                    Summary points saved to Google Sheet: &apos;Idea Sheet&apos;
                   </p>
                 </div>
               </div>
