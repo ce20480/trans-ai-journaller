@@ -29,7 +29,10 @@ export async function POST(request: NextRequest) {
   } catch (error) {
     console.error("Error during transcription:", error);
     return NextResponse.json(
-      { error: "Transcription failed", details: error.message },
+      {
+        error: "Transcription failed",
+        details: error instanceof Error ? error.message : String(error),
+      },
       { status: 500 }
     );
   }
