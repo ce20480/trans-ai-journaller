@@ -11,6 +11,7 @@
   "dependencies": {
     "@google/generative-ai": "^0.24.0",
     "axios": "^1.6.2",
+    "dotenv": "^16.5.0",
     "googleapis": "^129.0.0",
     "jose": "^6.0.10",
     "jsonwebtoken": "^9.0.2",

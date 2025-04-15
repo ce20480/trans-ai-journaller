@@ -18,6 +18,15 @@ export default function Dashboard() {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const router = useRouter();
 
+  // Audio recording states
+  const [isRecording, setIsRecording] = useState(false);
+  const [recordingTime, setRecordingTime] = useState(0);
+  const [audioBlob, setAudioBlob] = useState<Blob | null>(null);
+  const [audioURL, setAudioURL] = useState<string | null>(null);
+  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
+  const audioChunksRef = useRef<Blob[]>([]);
+  const timerRef = useRef<NodeJS.Timeout | null>(null);
+
   // Check authentication on component mount
   useEffect(() => {
     const checkAuth = async () => {
@@ -41,8 +50,111 @@ export default function Dashboard() {
     checkAuth();
   }, [router]);
 
+  // Cleanup audio recording resources on unmount
+  useEffect(() => {
+    return () => {
+      if (timerRef.current) {
+        clearInterval(timerRef.current);
+      }
+      if (audioURL) {
+        URL.revokeObjectURL(audioURL);
+      }
+    };
+  }, [audioURL]);
+
+  // Format recording time as MM:SS
+  const formatTime = (seconds: number): string => {
+    const mins = Math.floor(seconds / 60)
+      .toString()
+      .padStart(2, "0");
+    const secs = (seconds % 60).toString().padStart(2, "0");
+    return `${mins}:${secs}`;
+  };
+
+  // Start recording audio
+  const startRecording = async () => {
+    try {
+      setError(null);
+      setErrorDetails(null);
+
+      // Reset previous recording if exists
+      if (audioURL) {
+        URL.revokeObjectURL(audioURL);
+        setAudioURL(null);
+      }
+      setAudioBlob(null);
+      setFile(null);
+
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      const mediaRecorder = new MediaRecorder(stream);
+      mediaRecorderRef.current = mediaRecorder;
+      audioChunksRef.current = [];
+
+      mediaRecorder.ondataavailable = (e) => {
+        if (e.data.size > 0) {
+          audioChunksRef.current.push(e.data);
+        }
+      };
+
+      mediaRecorder.onstop = () => {
+        const audioBlob = new Blob(audioChunksRef.current, {
+          type: "audio/webm",
+        });
+        const url = URL.createObjectURL(audioBlob);
+        setAudioBlob(audioBlob);
+        setAudioURL(url);
+
+        // Convert to File object for upload
+        const fileName = `recording_${new Date()
+          .toISOString()
+          .replace(/[:.]/g, "-")}.webm`;
+        const audioFile = new File([audioBlob], fileName, {
+          type: "audio/webm",
+        });
+        setFile(audioFile);
+
+        // Stop all tracks in the stream
+        stream.getTracks().forEach((track) => track.stop());
+      };
+
+      // Start recording
+      mediaRecorder.start();
+      setIsRecording(true);
+      setRecordingTime(0);
+
+      // Start timer
+      timerRef.current = setInterval(() => {
+        setRecordingTime((prev) => prev + 1);
+      }, 1000);
+    } catch (err) {
+      console.error("Error starting recording:", err);
+      setError("Could not access microphone");
+      setErrorDetails(err instanceof Error ? err.message : "Unknown error");
+    }
+  };
+
+  // Stop recording audio
+  const stopRecording = () => {
+    if (mediaRecorderRef.current && isRecording) {
+      mediaRecorderRef.current.stop();
+      setIsRecording(false);
+
+      if (timerRef.current) {
+        clearInterval(timerRef.current);
+        timerRef.current = null;
+      }
+    }
+  };
+
   async function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
     if (e.target.files && e.target.files.length > 0) {
+      // Clear any existing recording
+      if (audioURL) {
+        URL.revokeObjectURL(audioURL);
+        setAudioURL(null);
+        setAudioBlob(null);
+      }
+
       setFile(e.target.files[0]);
     }
   }
@@ -51,7 +163,7 @@ export default function Dashboard() {
     e.preventDefault();
 
     if (!file) {
-      setError("Please select a file to upload");
+      setError("Please select a file or record audio");
       return;
     }
 
@@ -121,6 +233,17 @@ export default function Dashboard() {
         throw new Error(errorMsg, { cause: details });
       }
 
+      if (
+        !summarizeData.summary ||
+        !Array.isArray(summarizeData.summary) ||
+        summarizeData.summary.length === 0
+      ) {
+        console.error("Summarization returned empty or invalid data");
+        throw new Error("Failed to generate summary: No data returned", {
+          cause: "The LLM process returned empty results",
+        });
+      }
+
       console.log("LLM analysis completed");
 
       // Step 4: Write to Google Sheets
@@ -151,6 +274,11 @@ export default function Dashboard() {
         fileInputRef.current.value = "";
       }
       setFile(null);
+      setAudioBlob(null);
+      if (audioURL) {
+        URL.revokeObjectURL(audioURL);
+        setAudioURL(null);
+      }
       setCurrentStep("idle");
     } catch (err: unknown) {
       console.error("Process error:", err);
@@ -173,19 +301,39 @@ export default function Dashboard() {
   // Show loading state while checking authentication
   if (isAuthenticated === null) {
     return (
-      <div className="min-h-screen flex flex-col justify-center items-center bg-gray-50">
-        <div className="text-xl">Loading...</div>
+      <div className="min-h-screen flex flex-col justify-center items-center bg-gradient-to-br from-teal-50 to-cyan-100 dark:from-gray-800 dark:to-gray-900">
+        {/* Simple loading spinner */}
+        <div className="animate-spin rounded-full h-16 w-16 border-t-4 border-b-4 border-primary"></div>
+        <p className="mt-4 text-lg text-gray-700 dark:text-gray-300">
+          Loading Dashboard...
+        </p>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-gray-100 dark:bg-gray-900">
       {/* Header */}
-      <header className="bg-white shadow-sm">
-        <div className="container mx-auto px-4 py-4 flex justify-between items-center">
-          <Link href="/" className="text-xl font-bold text-blue-600">
-            TransAIJournaller
+      <header className="bg-white dark:bg-gray-800 shadow-md sticky top-0 z-40 border-b border-gray-200 dark:border-gray-700">
+        <div className="container mx-auto px-6 py-4 flex justify-between items-center">
+          <Link href="/" className="flex items-center gap-2 group">
+            {/* Replace with actual logo if available */}
+            <svg
+              className="w-8 h-8 text-primary dark:text-primary"
+              fill="none"
+              viewBox="0 0 24 24"
+              stroke="currentColor"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth="2"
+                d="M7 7h.01M7 3h5c.53 0 1.04.21 1.41.59L18 8h5v13H1V3h6zM1 14h6m-6 4h6m7-4h6"
+              />
+            </svg>
+            <span className="text-xl font-bold text-gray-800 dark:text-white group-hover:text-primary dark:group-hover:text-primary transition-colors duration-300">
+              TransAI Dashboard
+            </span>
           </Link>
           <button
             onClick={async () => {
@@ -204,7 +352,7 @@ export default function Dashboard() {
                 router.push("/login");
               }
             }}
-            className="text-sm text-gray-600 hover:text-gray-900"
+            className="text-sm text-gray-600 dark:text-gray-300 hover:text-primary dark:hover:text-primary transition-colors font-medium"
           >
             Logout
           </button>
@@ -212,135 +360,265 @@ export default function Dashboard() {
       </header>
 
       {/* Main Content */}
-      <main className="container mx-auto px-4 py-8">
-        <div className="max-w-3xl mx-auto bg-white rounded-lg shadow-md p-6">
-          <h1 className="text-2xl font-bold mb-6 text-center">
-            Media Transcription Dashboard
-          </h1>
+      <main className="container mx-auto px-6 py-10">
+        <div className="max-w-4xl mx-auto bg-white dark:bg-gray-800 rounded-xl shadow-xl overflow-hidden">
+          <div className="bg-gradient-to-r from-teal-500 to-cyan-500 dark:from-teal-600 dark:to-cyan-600 p-6">
+            <h1 className="text-2xl font-bold text-white text-center">
+              Media Transcription & Analysis
+            </h1>
+          </div>
 
-          {error && (
-            <div className="mb-6 p-4 bg-red-100 text-red-700 rounded-md">
-              <p className="font-medium">{error}</p>
-              {errorDetails && <p className="mt-1 text-sm">{errorDetails}</p>}
-              {currentStep !== "idle" && (
-                <p className="mt-2 text-sm">
-                  Error occurred during the{" "}
-                  <span className="font-medium">{currentStep}</span> step.
-                </p>
-              )}
-            </div>
-          )}
-
-          <form onSubmit={handleUpload} className="space-y-6">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Upload Audio/Video File
-              </label>
-              <div className="flex items-center justify-center w-full">
-                <label className="flex flex-col rounded-lg border-4 border-dashed w-full h-auto p-8 group text-center">
-                  <div className="h-full w-full text-center flex flex-col items-center justify-center">
-                    {file ? (
-                      <div className="mb-3">
-                        <p className="text-blue-600 font-medium">{file.name}</p>
-                        <p className="text-gray-500 text-sm mt-1">
-                          {(file.size / (1024 * 1024)).toFixed(2)} MB |{" "}
-                          {file.type}
-                        </p>
-                      </div>
-                    ) : (
-                      <>
-                        <svg
-                          className="w-10 h-10 text-blue-400 mb-3"
-                          fill="none"
-                          stroke="currentColor"
-                          viewBox="0 0 24 24"
-                          xmlns="http://www.w3.org/2000/svg"
-                        >
-                          <path
-                            strokeLinecap="round"
-                            strokeLinejoin="round"
-                            strokeWidth="2"
-                            d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"
-                          ></path>
-                        </svg>
-                        <p className="text-gray-700 font-medium mb-2">
-                          Drag and drop or click to select
-                        </p>
-                      </>
-                    )}
-                  </div>
-                  <input
-                    type="file"
-                    ref={fileInputRef}
-                    onChange={handleFileChange}
-                    className="hidden"
-                    accept="audio/mpeg,audio/mp4,audio/wav,audio/ogg,audio/webm,video/mp4,video/webm,video/ogg,video/quicktime"
-                    disabled={isUploading || isProcessing}
-                  />
-                </label>
-              </div>
-
-              <div className="mt-3 text-xs text-gray-500">
-                <p className="font-medium mb-1">Supported file formats:</p>
-                <p>
-                  <span className="font-medium">Audio:</span> MP3, MP4, WAV,
-                  OGG, WebM
-                </p>
-                <p>
-                  <span className="font-medium">Video:</span> MP4, WebM, OGG,
-                  QuickTime (MOV)
-                </p>
-                <p className="mt-1">
-                  <span className="font-medium">Maximum file size:</span> 100MB
-                </p>
-              </div>
-            </div>
-
-            <button
-              type="submit"
-              disabled={!file || isUploading || isProcessing}
-              className={`w-full py-3 px-4 rounded-md text-white font-medium ${
-                !file || isUploading || isProcessing
-                  ? "bg-blue-400 cursor-not-allowed"
-                  : "bg-blue-600 hover:bg-blue-700"
-              } transition-colors`}
-            >
-              {isUploading
-                ? "Uploading..."
-                : isProcessing
-                ? "Processing..."
-                : "Upload and Process"}
-            </button>
-
-            {isProcessing && (
-              <div className="text-center">
-                <div className="inline-block animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-blue-600 mb-2"></div>
-                <p className="text-sm text-gray-600">
-                  This may take a few minutes depending on the file size...
-                </p>
+          <div className="p-8">
+            {error && (
+              <div className="mb-6 p-4 bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-300 rounded-lg border border-red-200 dark:border-red-700 shadow-sm">
+                <p className="font-bold">Error: {error}</p>
+                {errorDetails && (
+                  <p className="mt-1 text-sm">Details: {errorDetails}</p>
+                )}
+                {currentStep !== "idle" && (
+                  <p className="mt-2 text-xs">
+                    (Occurred during: {currentStep})
+                  </p>
+                )}
               </div>
             )}
-          </form>
 
-          {summary.length > 0 && (
-            <div className="mt-10 border-t pt-6">
-              <h2 className="text-xl font-semibold mb-4">Summary Points</h2>
-              <div className="bg-gray-50 p-4 rounded-md">
-                <ul className="list-disc pl-5 space-y-2">
-                  {summary.map((point, index) => (
-                    <li key={index} className="text-gray-800">
-                      {point}
-                    </li>
-                  ))}
-                </ul>
-              </div>
-              <div className="mt-4 text-sm text-gray-600">
-                <p>
-                  These summary points have been saved to your Google Sheet.
-                </p>
+            <div className="mb-6">
+              <h2 className="text-lg font-semibold text-gray-800 dark:text-white mb-4">
+                Choose Input Method
+              </h2>
+
+              <div className="grid md:grid-cols-2 gap-4">
+                {/* File Upload Panel */}
+                <div className="bg-secondary dark:bg-gray-700 p-6 rounded-lg shadow-md">
+                  <h3 className="text-md font-semibold mb-4 text-gray-800 dark:text-white">
+                    Upload Audio/Video File
+                  </h3>
+
+                  <div className="flex justify-center px-4 pt-4 pb-4 border-2 border-gray-300 dark:border-gray-600 border-dashed rounded-lg bg-gray-50 dark:bg-gray-700/50 hover:border-primary dark:hover:border-primary transition-colors">
+                    <div className="space-y-1 text-center">
+                      <svg
+                        className="mx-auto h-10 w-10 text-gray-400 dark:text-gray-500"
+                        stroke="currentColor"
+                        fill="none"
+                        viewBox="0 0 48 48"
+                        aria-hidden="true"
+                      >
+                        <path
+                          d="M28 8H12a4 4 0 00-4 4v20m32-12v8m0 0v8a4 4 0 01-4 4H12a4 4 0 01-4-4v-4m32-4l-3.172-3.172a4 4 0 00-5.656 0L28 28M8 32l9.172-9.172a4 4 0 015.656 0L28 28m0 0l4 4m4-24h8m-4-4v8m-12 4h.02"
+                          strokeWidth="2"
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                        />
+                      </svg>
+                      <div className="flex text-sm text-gray-600 dark:text-gray-400 justify-center">
+                        <label
+                          htmlFor="file-upload"
+                          className="relative cursor-pointer bg-white dark:bg-gray-700 rounded-md font-medium text-primary dark:text-accent hover:text-primary-hover focus-within:outline-none focus-within:ring-2 focus-within:ring-offset-2 focus-within:ring-primary px-2 py-1"
+                        >
+                          <span>
+                            {file && !audioBlob
+                              ? "Change file"
+                              : "Upload a file"}
+                          </span>
+                          <input
+                            id="file-upload"
+                            name="file-upload"
+                            type="file"
+                            className="sr-only"
+                            ref={fileInputRef}
+                            onChange={handleFileChange}
+                            accept="audio/mpeg,audio/mp4,audio/wav,audio/ogg,audio/webm,video/mp4,video/webm,video/ogg,video/quicktime"
+                            disabled={
+                              isUploading || isProcessing || isRecording
+                            }
+                          />
+                        </label>
+                      </div>
+                      {file && !audioBlob ? (
+                        <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                          Selected: {file.name} (
+                          {(file.size / (1024 * 1024)).toFixed(2)} MB)
+                        </p>
+                      ) : (
+                        <p className="text-xs text-gray-500 dark:text-gray-400">
+                          MP3, MP4, WAV, OGG, WebM, MOV
+                        </p>
+                      )}
+                    </div>
+                  </div>
+                </div>
+
+                {/* Audio Recording Panel */}
+                <div className="bg-secondary dark:bg-gray-700 p-6 rounded-lg shadow-md">
+                  <h3 className="text-md font-semibold mb-4 text-gray-800 dark:text-white">
+                    Record Audio
+                  </h3>
+
+                  <div className="flex flex-col items-center justify-center h-full">
+                    {/* Recording interface */}
+                    <div className="relative w-full">
+                      <div className="flex items-center justify-center space-x-4 mb-2">
+                        {!isRecording ? (
+                          <button
+                            type="button"
+                            onClick={startRecording}
+                            disabled={isUploading || isProcessing}
+                            className={`flex items-center justify-center w-12 h-12 rounded-full ${
+                              isUploading || isProcessing
+                                ? "bg-red-300 cursor-not-allowed"
+                                : "bg-red-500 hover:bg-red-600 focus:ring-2 focus:ring-offset-2 focus:ring-red-500"
+                            }`}
+                          >
+                            <span className="sr-only">Start recording</span>
+                            <svg
+                              className="w-6 h-6 text-white"
+                              fill="currentColor"
+                              viewBox="0 0 20 20"
+                            >
+                              <circle cx="10" cy="10" r="6" />
+                            </svg>
+                          </button>
+                        ) : (
+                          <button
+                            type="button"
+                            onClick={stopRecording}
+                            className="flex items-center justify-center w-12 h-12 bg-gray-100 dark:bg-gray-600 rounded-full hover:bg-gray-200 dark:hover:bg-gray-500 focus:ring-2 focus:ring-offset-2 focus:ring-gray-500"
+                          >
+                            <span className="sr-only">Stop recording</span>
+                            <svg
+                              className="w-5 h-5 text-gray-700 dark:text-white"
+                              fill="currentColor"
+                              viewBox="0 0 20 20"
+                            >
+                              <rect width="10" height="10" x="5" y="5" />
+                            </svg>
+                          </button>
+                        )}
+
+                        <div className="text-center">
+                          {isRecording ? (
+                            <div className="flex items-center">
+                              <div className="animate-pulse mr-2 h-2 w-2 rounded-full bg-red-500"></div>
+                              <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                                Recording: {formatTime(recordingTime)}
+                              </span>
+                            </div>
+                          ) : audioURL ? (
+                            <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                              Recording complete: {formatTime(recordingTime)}
+                            </span>
+                          ) : (
+                            <span className="text-sm text-gray-500 dark:text-gray-400">
+                              Click to start recording
+                            </span>
+                          )}
+                        </div>
+                      </div>
+
+                      {/* Audio player */}
+                      {audioURL && (
+                        <div className="mt-3 flex justify-center">
+                          <audio
+                            src={audioURL}
+                            controls
+                            className="w-full h-8 max-w-xs"
+                          />
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </div>
               </div>
             </div>
-          )}
+
+            <form onSubmit={handleUpload} className="space-y-6">
+              <button
+                type="submit"
+                disabled={
+                  (!file && !audioBlob) ||
+                  isUploading ||
+                  isProcessing ||
+                  isRecording
+                }
+                className={`w-full flex justify-center py-3 px-4 border border-transparent rounded-lg shadow-sm text-sm font-medium text-white transition-colors duration-150 ${
+                  (!file && !audioBlob) ||
+                  isUploading ||
+                  isProcessing ||
+                  isRecording
+                    ? "bg-teal-300 dark:bg-teal-800 cursor-not-allowed"
+                    : "bg-primary hover:bg-primary-hover dark:bg-primary dark:hover:bg-primary-hover focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary"
+                }`}
+              >
+                {isUploading || isProcessing ? (
+                  <span className="flex items-center">
+                    <svg
+                      className="animate-spin -ml-1 mr-2 h-4 w-4 text-white"
+                      xmlns="http://www.w3.org/2000/svg"
+                      fill="none"
+                      viewBox="0 0 24 24"
+                    >
+                      <circle
+                        className="opacity-25"
+                        cx="12"
+                        cy="12"
+                        r="10"
+                        stroke="currentColor"
+                        strokeWidth="4"
+                      ></circle>
+                      <path
+                        className="opacity-75"
+                        fill="currentColor"
+                        d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+                      ></path>
+                    </svg>
+                    {currentStep === "uploading"
+                      ? "Uploading..."
+                      : "Processing..."}
+                  </span>
+                ) : (
+                  "Process & Generate Summary"
+                )}
+              </button>
+
+              {isProcessing && (
+                <div className="text-center pt-4 border-t border-gray-200 dark:border-gray-700">
+                  <div className="inline-block animate-spin rounded-full h-6 w-6 border-t-2 border-b-2 border-primary mb-2"></div>
+                  <p className="text-sm text-gray-600 dark:text-gray-400">
+                    Processing step:{" "}
+                    <span className="font-medium text-primary dark:text-accent">
+                      {currentStep}
+                    </span>
+                    ...
+                  </p>
+                  <p className="text-xs text-gray-500 dark:text-gray-500 mt-1">
+                    This might take a few moments.
+                  </p>
+                </div>
+              )}
+            </form>
+
+            {summary.length > 0 && (
+              <div className="mt-10 border-t border-gray-200 dark:border-gray-700 pt-8">
+                <h2 className="text-xl font-semibold mb-4 text-gray-900 dark:text-white">
+                  Generated Summary
+                </h2>
+                <div className="bg-secondary dark:bg-gray-700 p-6 rounded-lg shadow-inner">
+                  <ul className="list-disc pl-5 space-y-2 text-gray-700 dark:text-gray-200">
+                    {summary.map((point, index) => (
+                      <li key={index}>{point}</li>
+                    ))}
+                  </ul>
+                </div>
+                <div className="mt-4 text-sm text-gray-600 dark:text-gray-400 text-center">
+                  <p>
+                    ✅ Summary points saved to Google Sheet: &apos;Idea
+                    Sheet&apos;
+                  </p>
+                </div>
+              </div>
+            )}
+          </div>
         </div>
       </main>
     </div>
