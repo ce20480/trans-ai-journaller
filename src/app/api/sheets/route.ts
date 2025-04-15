@@ -29,7 +29,10 @@ export async function POST(request: NextRequest) {
   } catch (error) {
     console.error("Error writing to Google Sheets:", error);
     return NextResponse.json(
-      { error: "Failed to write to Google Sheets", details: error.message },
+      {
+        error: "Failed to write to Google Sheets",
+        details: error instanceof Error ? error.message : String(error),
+      },
       { status: 500 }
     );
   }
