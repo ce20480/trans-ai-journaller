@@ -3,8 +3,10 @@
 import { useState, useRef, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
+import { createClientComponentClient } from "@supabase/auth-helpers-nextjs";
 
 export default function Dashboard() {
+  const supabase = createClientComponentClient();
   const [file, setFile] = useState<File | null>(null);
   const [isUploading, setIsUploading] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
@@ -31,11 +33,12 @@ export default function Dashboard() {
   useEffect(() => {
     const checkAuth = async () => {
       try {
-        const response = await fetch("/api/auth/check", {
-          method: "GET",
-        });
+        const {
+          data: { session },
+          error,
+        } = await supabase.auth.getSession();
 
-        if (!response.ok) {
+        if (error || !session) {
           router.push("/login");
           return;
         }
@@ -48,7 +51,7 @@ export default function Dashboard() {
     };
 
     checkAuth();
-  }, [router]);
+  }, [router, supabase.auth]);
 
   // Cleanup audio recording resources on unmount
   useEffect(() => {
@@ -319,27 +322,14 @@ export default function Dashboard() {
               T2A Dashboard
             </span>
           </Link>
-          <button
-            onClick={async () => {
-              try {
-                // Call logout API endpoint
-                await fetch("/api/auth/logout", {
-                  method: "POST",
-                });
-                // Redirect to login page
-                router.push("/login");
-              } catch (error) {
-                console.error("Logout failed:", error);
-                // Fallback to client-side cookie clearing if API fails
-                document.cookie =
-                  "auth_token=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;";
-                router.push("/login");
-              }
-            }}
-            className="text-sm bg-[#262626] text-white hover:text-[#facc15] px-4 py-1.5 rounded-full transition-colors"
-          >
-            Logout
-          </button>
+          <div className="flex items-center space-x-4">
+            <Link
+              href="/logout"
+              className="text-sm bg-[#262626] text-white hover:text-[#facc15] px-4 py-1.5 rounded-full transition-colors"
+            >
+              Logout
+            </Link>
+          </div>
         </div>
       </header>
 
