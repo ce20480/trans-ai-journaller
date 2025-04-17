@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { signup } from "../../actions/login/actions";
+import { signup } from "@/actions/login/actions";
 
 export default function Register() {
   const [email, setEmail] = useState("");

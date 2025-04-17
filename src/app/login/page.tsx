@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { login } from "../../actions/login/actions";
+import { login } from "@/actions/login/actions";
 
 export default function Login() {
   const [email, setEmail] = useState("");
