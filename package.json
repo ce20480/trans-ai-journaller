@@ -10,6 +10,10 @@
   },
   "dependencies": {
     "@google/generative-ai": "^0.24.0",
+    "@stripe/stripe-js": "^7.1.0",
+    "@supabase/auth-helpers-nextjs": "^0.10.0",
+    "@supabase/ssr": "^0.6.1",
+    "@supabase/supabase-js": "^2.49.4",
     "@vercel/analytics": "^1.5.0",
     "@vercel/speed-insights": "^1.2.0",
     "axios": "^1.6.2",
@@ -19,7 +23,9 @@
     "jsonwebtoken": "^9.0.2",
     "next": "15.3.0",
     "react": "^19.0.0",
-    "react-dom": "^19.0.0"
+    "react-dom": "^19.0.0",
+    "resend": "^4.3.0",
+    "stripe": "^18.0.0"
   },
   "devDependencies": {
     "@eslint/eslintrc": "^3",

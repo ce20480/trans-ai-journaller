@@ -1,26 +1,20 @@
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
+import { signOut } from "@/utils/supabase";
 
-export async function POST() {
+export async function GET(request: NextRequest) {
   try {
-    // Create response
-    const response = NextResponse.json({ success: true });
+    // Sign out using Supabase
+    const { error } = await signOut();
 
-    // Clear the auth token cookie
-    response.cookies.set({
-      name: "auth_token",
-      value: "",
-      httpOnly: true,
-      secure: process.env.NODE_ENV === "production",
-      sameSite: "strict",
-      path: "/",
-      maxAge: 0, // Setting maxAge to 0 removes the cookie
-    });
+    if (error) {
+      console.error("Error during logout:", error.message);
+      return NextResponse.json({ error: "Failed to log out" }, { status: 500 });
+    }
 
-    console.log("User logged out, auth_token cookie cleared");
-
-    return response;
-  } catch (error) {
-    console.error("Error during logout:", error);
+    // Redirect to login page
+    return NextResponse.redirect(new URL("/login", request.url));
+  } catch (err) {
+    console.error("Error during logout:", err);
     return NextResponse.json({ error: "Logout failed" }, { status: 500 });
   }
 }

@@ -118,6 +118,7 @@ The middleware.ts file contains logic that runs before a request is completed. I
   - AssemblyAI (or alternative transcription service)
   - Gemini (or alternative LLM)
   - Google Sheets API credentials
+  - Stripe API for payment processing
 
 ### Environment Variables
 
@@ -139,7 +140,27 @@ GEMINI_API_KEY=your-gemini-api-key
 GOOGLE_CLIENT_EMAIL=your-google-service-account-email
 GOOGLE_PRIVATE_KEY=your-google-service-account-private-key
 SPREADSHEET_ID=your-google-spreadsheet-id
+
+# Stripe Payment Processing
+STRIPE_API_KEY=your-stripe-secret-key
+STRIPE_WEBHOOK_SECRET=your-stripe-webhook-signing-secret
+NEXT_PUBLIC_BASE_URL=http://localhost:3000
 ```
+
+### Stripe Configuration
+
+To set up the Stripe integration:
+
+1. Create a Stripe account at [stripe.com](https://stripe.com)
+2. In the Stripe Dashboard, get your API keys from Developers → API keys
+3. Set up a webhook endpoint in Developers → Webhooks:
+   - URL: `{NEXT_PUBLIC_BASE_URL}/api/webhooks/stripe`
+   - Events to listen for:
+     - `checkout.session.completed`
+     - `customer.subscription.updated`
+     - `customer.subscription.deleted`
+4. Get the webhook signing secret and add it to your .env file
+5. Create a product and price in the Stripe Dashboard for your subscription
 
 ### Running the Application
 

@@ -1,72 +1,48 @@
 import { NextRequest, NextResponse } from "next/server";
-import { createToken, JWTPayload } from "@/utils/auth";
+import { signIn } from "@/utils/supabase";
 
 // Log environment status on first load
 console.log("Auth API Environment Check:", {
-  JWT_SECRET_SET: !!process.env.JWT_SECRET,
-  AUTH_USERNAME_SET: !!process.env.AUTH_USERNAME,
-  AUTH_PASSWORD_SET: !!process.env.AUTH_PASSWORD,
+  NEXT_PUBLIC_SUPABASE_URL_SET: !!process.env.NEXT_PUBLIC_SUPABASE_URL,
+  NEXT_PUBLIC_SUPABASE_ANON_KEY_SET:
+    !!process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY,
   NODE_ENV: process.env.NODE_ENV,
 });
 
-const USERS = [
-  {
-    username: process.env.AUTH_USERNAME || "admin",
-    password: process.env.AUTH_PASSWORD || "password",
-  },
-];
-
 export async function POST(request: NextRequest) {
   try {
-    const { username, password } = await request.json();
+    const { email, password } = await request.json();
 
     // Basic validation
-    if (!username || !password) {
+    if (!email || !password) {
       return NextResponse.json(
-        { error: "Username and password are required" },
+        { error: "Email and password are required" },
         { status: 400 }
       );
     }
 
-    // Check credentials
-    const user = USERS.find(
-      (u) => u.username === username && u.password === password
-    );
+    // Sign in with Supabase
+    const { data, error } = await signIn(email, password);
 
-    if (!user) {
+    if (error) {
+      console.error("Authentication error:", error.message);
       return NextResponse.json(
         { error: "Invalid credentials" },
         { status: 401 }
       );
     }
 
-    // Generate JWT token using jose
-    const payload: JWTPayload = { username: user.username };
-    const token = await createToken(payload);
+    // Success - Supabase session is automatically handled by the client SDK
+    // We don't need to manually set cookies as Supabase takes care of it
+    console.log("User authenticated:", data.user?.email);
 
-    console.log("Token generated for user:", user.username);
-
-    // Set HTTP-only cookie with the token
-    const response = NextResponse.json({ success: true });
-    response.cookies.set({
-      name: "auth_token",
-      value: token,
-      httpOnly: true,
-      secure: process.env.NODE_ENV === "production",
-      sameSite: "strict",
-      path: "/",
-      maxAge: 60 * 60 * 24, // 24 hours
+    return NextResponse.json({
+      success: true,
+      user: {
+        email: data.user?.email,
+        id: data.user?.id,
+      },
     });
-
-    console.log("Cookie set:", {
-      name: "auth_token",
-      value: token.substring(0, 10) + "...",
-      httpOnly: true,
-      secure: process.env.NODE_ENV === "production",
-      sameSite: "strict",
-    });
-
-    return response;
   } catch (error) {
     console.error("Error during authentication:", error);
     return NextResponse.json(

@@ -1,25 +1,33 @@
-import { NextRequest, NextResponse } from "next/server";
-import { verifyAuth } from "@/utils/auth";
+import { NextResponse } from "next/server";
+import { supabase } from "@/utils/supabase";
 
-export async function GET(request: NextRequest) {
+export async function GET() {
   try {
-    // Verify authentication
-    const authResult = await verifyAuth(request);
+    // Check current session with Supabase
+    const { data, error } = await supabase.auth.getSession();
 
-    if (!authResult.isAuthenticated) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    if (error) {
+      console.error("Session check error:", error.message);
+      return NextResponse.json(
+        { error: "Authentication check failed" },
+        { status: 401 }
+      );
     }
 
-    // Return success if authenticated
+    if (!data.session) {
+      return NextResponse.json({ authenticated: false }, { status: 401 });
+    }
+
+    // Return user info
     return NextResponse.json({
-      success: true,
-      username: authResult.username,
+      authenticated: true,
+      user: {
+        email: data.session.user.email,
+        id: data.session.user.id,
+      },
     });
-  } catch (error: unknown) {
-    console.error(
-      "Auth check error:",
-      error instanceof Error ? error.message : "Unknown error"
-    );
+  } catch (err) {
+    console.error("Auth check error:", err);
     return NextResponse.json(
       { error: "Authentication check failed" },
       { status: 500 }

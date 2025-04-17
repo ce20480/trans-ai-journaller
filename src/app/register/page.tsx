@@ -5,10 +5,12 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { createClientComponentClient } from "@supabase/auth-helpers-nextjs";
 
-export default function Login() {
+export default function Register() {
   const supabase = createClientComponentClient();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
+  const [name, setName] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const router = useRouter();
@@ -18,54 +20,65 @@ export default function Login() {
     setError(null);
     setIsLoading(true);
 
+    // Basic validation
+    if (password !== confirmPassword) {
+      setError("Passwords do not match");
+      setIsLoading(false);
+      return;
+    }
+
+    if (password.length < 6) {
+      setError("Password must be at least 6 characters");
+      setIsLoading(false);
+      return;
+    }
+
     try {
-      // Sign in with Supabase client-side
-      const { data, error } = await supabase.auth.signInWithPassword({
+      // Register with Supabase
+      const { data, error } = await supabase.auth.signUp({
         email,
         password,
+        options: {
+          data: {
+            name,
+            role: "user", // Default role for new users
+          },
+        },
       });
 
       if (error) {
-        throw new Error(error.message || "Login failed");
+        throw new Error(error.message || "Registration failed");
       }
 
       if (!data.user) {
         throw new Error("No user returned from authentication");
       }
 
-      // Check subscription status before redirecting
-      const { data: profile } = await supabase
-        .from("profiles")
-        .select("subscription_status")
-        .eq("id", data.user.id)
-        .single();
-
-      // Get user role from metadata
-      const userRole = data.user.user_metadata?.role || "user";
-      const isAdmin = userRole === "admin";
-      const isBetaTester = userRole === "beta-tester";
-
-      // Determine if user has premium access (admin, beta tester, or active subscription)
-      const hasPremiumAccess =
-        isAdmin || isBetaTester || profile?.subscription_status === "active";
-
-      if (hasPremiumAccess) {
-        // If user has premium access, go to dashboard
-        console.log("User has premium access, redirecting to dashboard...");
-        router.push("/dashboard");
-      } else {
-        // If user doesn't have premium access, go to payment
-        console.log("User needs subscription, redirecting to payment...");
-        router.push("/payment");
+      // For email confirmation flows, notify user
+      if (data.session === null) {
+        router.push("/verify-email?email=" + encodeURIComponent(email));
+        return;
       }
 
-      // Fallback redirect in case router.push doesn't work
+      // Immediate sign-in to ensure session is established
+      const { error: signInError } = await supabase.auth.signInWithPassword({
+        email,
+        password,
+      });
+
+      if (signInError) {
+        console.error("Auto sign-in failed:", signInError);
+        // Still continue as the user was created successfully
+      }
+
+      // Short delay to ensure session is fully established
       setTimeout(() => {
-        console.log("Fallback redirect activated");
-        window.location.href = hasPremiumAccess ? "/dashboard" : "/payment";
+        // Redirect to payment page after successful registration and sign-in
+        console.log("Registration successful, redirecting to payment page...");
+        router.push("/payment");
       }, 500);
     } catch (err: unknown) {
-      console.error("Login error:", err);
+      console.error("Registration error:", err);
       setError(
         err instanceof Error ? err.message : "An unexpected error occurred"
       );
@@ -81,8 +94,10 @@ export default function Login() {
           <Link href="/" className="inline-block mb-4">
             <span className="text-3xl font-bold text-[#facc15]">T2A</span>
           </Link>
-          <h1 className="text-2xl font-bold text-white">Login</h1>
-          <p className="text-[#b3b3b3] mt-2">Access your T2A account.</p>
+          <h1 className="text-2xl font-bold text-white">Create an Account</h1>
+          <p className="text-[#b3b3b3] mt-2">
+            Join T2A and never lose an idea again
+          </p>
         </div>
 
         {error && (
@@ -91,7 +106,24 @@ export default function Login() {
           </div>
         )}
 
-        <form onSubmit={handleSubmit} className="space-y-6">
+        <form onSubmit={handleSubmit} className="space-y-4">
+          <div>
+            <label
+              htmlFor="name"
+              className="block text-sm font-medium text-[#b3b3b3] mb-1"
+            >
+              Full Name
+            </label>
+            <input
+              id="name"
+              type="text"
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              className="w-full p-3 border border-[#373737] rounded-lg bg-[#262626] focus:ring-2 focus:ring-[#facc15] focus:border-transparent transition duration-150 ease-in-out text-white"
+              required
+            />
+          </div>
+
           <div>
             <label
               htmlFor="email"
@@ -124,6 +156,26 @@ export default function Login() {
               className="w-full p-3 border border-[#373737] rounded-lg bg-[#262626] focus:ring-2 focus:ring-[#facc15] focus:border-transparent transition duration-150 ease-in-out text-white"
               required
             />
+            <p className="text-xs text-[#b3b3b3] mt-1">
+              Must be at least 6 characters
+            </p>
+          </div>
+
+          <div>
+            <label
+              htmlFor="confirmPassword"
+              className="block text-sm font-medium text-[#b3b3b3] mb-1"
+            >
+              Confirm Password
+            </label>
+            <input
+              id="confirmPassword"
+              type="password"
+              value={confirmPassword}
+              onChange={(e) => setConfirmPassword(e.target.value)}
+              className="w-full p-3 border border-[#373737] rounded-lg bg-[#262626] focus:ring-2 focus:ring-[#facc15] focus:border-transparent transition duration-150 ease-in-out text-white"
+              required
+            />
           </div>
 
           <button
@@ -133,7 +185,7 @@ export default function Login() {
               isLoading
                 ? "bg-[#facc15]/70 cursor-not-allowed"
                 : "bg-[#facc15] hover:bg-[#fde047]"
-            } transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-[#facc15]/50 focus:ring-offset-2 focus:ring-offset-[#262626] shadow-md`}
+            } transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-[#facc15]/50 focus:ring-offset-2 focus:ring-offset-[#262626] shadow-md mt-6`}
           >
             {isLoading ? (
               <span className="flex items-center justify-center">
@@ -160,16 +212,16 @@ export default function Login() {
                 Processing...
               </span>
             ) : (
-              "Login"
+              "Create Account"
             )}
           </button>
         </form>
 
         <div className="text-center mt-6">
           <p className="text-sm text-[#b3b3b3]">
-            Don&apos;t have an account?{" "}
-            <Link href="/register" className="text-[#facc15] hover:underline">
-              Sign up
+            Already have an account?{" "}
+            <Link href="/login" className="text-[#facc15] hover:underline">
+              Login
             </Link>
           </p>
         </div>
