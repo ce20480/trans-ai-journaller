@@ -4,7 +4,7 @@ import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { User } from "@supabase/supabase-js";
-import { createClient } from "@/app/utils/supabase/client";
+import { createClient } from "@/utils/supabase/client";
 
 export default function Payment() {
   const supabase = createClient();

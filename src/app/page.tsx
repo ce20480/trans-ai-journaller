@@ -1,7 +1,7 @@
 import Link from "next/link";
 import Image from "next/image";
-import WaitlistSection from "./components/WaitlistSection";
-import Navigation from "./components/Navigation";
+import WaitlistSection from "../components/WaitlistSection";
+import Navigation from "../components/Navigation";
 
 export default function Home() {
   return (
