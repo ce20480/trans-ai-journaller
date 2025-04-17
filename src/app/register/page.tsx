@@ -1,83 +1,30 @@
 "use client";
 
 import { useState } from "react";
-import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { createClientComponentClient } from "@supabase/auth-helpers-nextjs";
+import { signup } from "../actions/login/actions";
 
 export default function Register() {
-  const supabase = createClientComponentClient();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [name, setName] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
-  const router = useRouter();
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setError(null);
+  const handleSubmit = async (formData: FormData) => {
     setIsLoading(true);
-
-    // Basic validation
-    if (password !== confirmPassword) {
-      setError("Passwords do not match");
-      setIsLoading(false);
-      return;
-    }
-
-    if (password.length < 6) {
-      setError("Password must be at least 6 characters");
-      setIsLoading(false);
-      return;
-    }
+    setError(null);
 
     try {
-      // Register with Supabase
-      const { data, error } = await supabase.auth.signUp({
-        email,
-        password,
-        options: {
-          data: {
-            name,
-            role: "user", // Default role for new users
-          },
-        },
-      });
+      // Use the server action to handle registration
+      const result = await signup(formData);
 
-      if (error) {
-        throw new Error(error.message || "Registration failed");
+      // If there's an error returned from the server action
+      if (result?.error) {
+        setError(result.error);
       }
-
-      if (!data.user) {
-        throw new Error("No user returned from authentication");
-      }
-
-      // For email confirmation flows, notify user
-      if (data.session === null) {
-        router.push("/verify-email?email=" + encodeURIComponent(email));
-        return;
-      }
-
-      // Immediate sign-in to ensure session is established
-      const { error: signInError } = await supabase.auth.signInWithPassword({
-        email,
-        password,
-      });
-
-      if (signInError) {
-        console.error("Auto sign-in failed:", signInError);
-        // Still continue as the user was created successfully
-      }
-
-      // Short delay to ensure session is fully established
-      setTimeout(() => {
-        // Redirect to payment page after successful registration and sign-in
-        console.log("Registration successful, redirecting to payment page...");
-        router.push("/payment");
-      }, 500);
-    } catch (err: unknown) {
+    } catch (err) {
       console.error("Registration error:", err);
       setError(
         err instanceof Error ? err.message : "An unexpected error occurred"
@@ -106,7 +53,7 @@ export default function Register() {
           </div>
         )}
 
-        <form onSubmit={handleSubmit} className="space-y-4">
+        <form action={handleSubmit} className="space-y-4">
           <div>
             <label
               htmlFor="name"
@@ -116,6 +63,7 @@ export default function Register() {
             </label>
             <input
               id="name"
+              name="name"
               type="text"
               value={name}
               onChange={(e) => setName(e.target.value)}
@@ -133,6 +81,7 @@ export default function Register() {
             </label>
             <input
               id="email"
+              name="email"
               type="email"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
@@ -150,6 +99,7 @@ export default function Register() {
             </label>
             <input
               id="password"
+              name="password"
               type="password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
@@ -170,6 +120,7 @@ export default function Register() {
             </label>
             <input
               id="confirmPassword"
+              name="confirmPassword"
               type="password"
               value={confirmPassword}
               onChange={(e) => setConfirmPassword(e.target.value)}

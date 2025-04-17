@@ -1,40 +1,13 @@
 import Link from "next/link";
 import Image from "next/image";
 import WaitlistSection from "./components/WaitlistSection";
+import Navigation from "./components/Navigation";
 
 export default function Home() {
   return (
     <div className="min-h-screen flex flex-col bg-[#0d0d0d] text-white">
       {/* Navigation */}
-      <nav className="bg-[#1a1a1a]/80 backdrop-blur-md py-4 sticky top-0 z-50 border-b border-[#262626]">
-        <div className="container mx-auto px-6 flex justify-between items-center">
-          <Link href="/" className="flex items-center gap-2 group">
-            <span className="text-2xl font-bold text-white group-hover:text-[#facc15] transition-colors duration-300">
-              T2A
-            </span>
-          </Link>
-          <div className="flex items-center space-x-6">
-            <Link
-              href="#how-it-works"
-              className="text-[#b3b3b3] hover:text-[#facc15] transition-colors"
-            >
-              How It Works
-            </Link>
-            <Link
-              href="/register"
-              className="text-[#b3b3b3] hover:text-[#facc15] transition-colors"
-            >
-              Sign Up
-            </Link>
-            <Link
-              href="#join-waitlist"
-              className="bg-[#facc15] hover:bg-[#fde047] text-black px-5 py-2 rounded-full text-sm font-medium transition-colors"
-            >
-              Join Waitlist
-            </Link>
-          </div>
-        </div>
-      </nav>
+      <Navigation />
 
       {/* Hero Section */}
       <section className="py-20 flex-grow">

@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
-import { createMiddlewareClient } from "@supabase/auth-helpers-nextjs";
+import { updateSession } from "@/utils/supabase/middleware";
 
 // --- Rate Limiting Configuration ---
 const RATE_LIMIT_WINDOW_MS = 60 * 1000; // 1 minute
@@ -9,21 +9,54 @@ const RATE_LIMIT_MAX_REQUESTS = 30; // Max requests per window per IP
 // In-memory store for rate limiting (WARNING: Not suitable for scaled deployments)
 const requestCounts = new Map<string, { count: number; timestamp: number }>();
 
-// Paths that require any authentication
-const protectedPaths = ["/dashboard", "/payment"];
+// Protected routes
+const PROTECTED_ROUTES = ["/dashboard", "/payment", "/success"];
 
-// Paths that require admin authentication
-const adminPaths = ["/admin"];
-
-// Paths that require payment/subscription
-const paidPaths = ["/dashboard"];
-
-// Paths for authentication
-const authPaths = ["/login", "/register", "/verify-email"];
+// Public routes
+// const PUBLIC_ROUTES = ["/", "/login", "/register", "/verify-email"];
 
 export async function middleware(request: NextRequest) {
+  // Apply rate limiting first
+  const rateLimitResponse = applyRateLimit(request);
+  if (rateLimitResponse) return rateLimitResponse;
+
+  // Otherwise, continue with custom path protection logic
+  // but use the response from Supabase to maintain correct cookies
+  const pathname = request.nextUrl.pathname;
+
+  // Then handle Supabase session refresh
+  // This will set the necessary cookies and ensure the auth session is valid
+  if (PROTECTED_ROUTES.some((path) => pathname.startsWith(path))) {
+    const supabaseResponse = await updateSession(request);
+
+    // If we need to redirect to login based on Supabase auth, return early
+    if (supabaseResponse.status !== 200) {
+      return supabaseResponse;
+    }
+
+    // Modify the response to include our custom redirects if needed
+    // We need to clone it so we don't modify the original
+    const response = NextResponse.next({
+      request: {
+        headers: request.headers,
+      },
+    });
+
+    // Copy all cookies from supabaseResponse to our response
+    supabaseResponse.cookies.getAll().forEach((cookie) => {
+      response.cookies.set(cookie.name, cookie.value);
+    });
+
+    // Log the path being accessed
+    console.log(`Middleware checking path: ${pathname}`);
+
+    return response;
+  }
+}
+
+// Helper function to apply rate limiting
+function applyRateLimit(request: NextRequest) {
   const { pathname } = request.nextUrl;
-  const response = NextResponse.next();
 
   // Get user's IP address from header (more reliable in Vercel/proxied envs)
   const ip =
@@ -56,123 +89,14 @@ export async function middleware(request: NextRequest) {
       }
     }
   }
-  // --- End Rate Limiting ---
 
-  // Create Supabase client in middleware
-  const supabase = createMiddlewareClient({ req: request, res: response });
-
-  // Check Supabase authentication status
-  const {
-    data: { session },
-  } = await supabase.auth.getSession();
-
-  const isAuthenticated = !!session;
-
-  // Get user metadata to check role
-  const userRole = session?.user?.user_metadata?.role || "user";
-  const isAdmin = userRole === "admin";
-  const isBetaTester = userRole === "beta-tester";
-
-  console.log(`Middleware checking path: ${pathname}`, {
-    hasSession: isAuthenticated,
-    userEmail: session?.user?.email || "none",
-    userRole,
-  });
-
-  // Check payment status for paid paths
-  let hasActiveSubscription = false;
-  if (
-    isAuthenticated &&
-    paidPaths.some(
-      (path) => pathname === path || pathname.startsWith(`${path}/`)
-    )
-  ) {
-    try {
-      // Check if user has profile with active subscription
-      const { data: profile } = await supabase
-        .from("profiles")
-        .select("subscription_status")
-        .eq("id", session.user.id)
-        .single();
-
-      hasActiveSubscription =
-        profile?.subscription_status === "active" || isAdmin || isBetaTester;
-    } catch (error) {
-      console.error("Error checking subscription:", error);
-    }
-  }
-
-  // Check if the path requires authentication
-  const isProtectedPath = protectedPaths.some(
-    (path) => pathname === path || pathname.startsWith(`${path}/`)
-  );
-
-  // Check if path requires admin role
-  const isAdminPath = adminPaths.some(
-    (path) => pathname === path || pathname.startsWith(`${path}/`)
-  );
-
-  // Check if the path is an auth path (login/register)
-  const isAuthPath = authPaths.some(
-    (path) => pathname === path || pathname.startsWith(`${path}/`)
-  );
-
-  // Check if path requires payment
-  const isPaidPath = paidPaths.some(
-    (path) => pathname === path || pathname.startsWith(`${path}/`)
-  );
-
-  console.log("Authentication check:", {
-    isAuthenticated,
-    isProtectedPath,
-    isAuthPath,
-    isAdmin,
-    isAdminPath,
-    isPaidPath,
-    hasActiveSubscription,
-  });
-
-  // Redirect if needed
-  if (isAdminPath && (!isAuthenticated || !isAdmin)) {
-    // Redirect to login if trying to access admin route without admin rights
-    console.log("Redirecting to login (unauthorized admin access)");
-    return NextResponse.redirect(new URL("/login", request.url));
-  }
-
-  if (isProtectedPath && !isAuthenticated) {
-    // Redirect to login if trying to access protected route without auth
-    console.log(
-      "Redirecting to login (unauthenticated access to protected path)"
-    );
-    return NextResponse.redirect(new URL("/login", request.url));
-  }
-
-  if (isPaidPath && isAuthenticated && !hasActiveSubscription && !isAdmin) {
-    // Redirect to payment if trying to access paid feature without subscription
-    console.log("Redirecting to payment (unpaid access to premium feature)");
-    return NextResponse.redirect(new URL("/payment", request.url));
-  }
-
-  if (isAuthPath && isAuthenticated) {
-    // Redirect to dashboard if already authenticated and trying to access login/register
-    console.log("Redirecting to dashboard (authenticated access to auth page)");
-    return NextResponse.redirect(new URL("/dashboard", request.url));
-  }
-
-  // Continue with the request
-  console.log("Continuing with request");
-  return response;
+  // If rate limit wasn't exceeded, return null to proceed
+  return null;
 }
 
 export const config = {
   // Matcher for routes that should run the middleware
   matcher: [
-    "/dashboard/:path*",
-    "/admin/:path*",
-    "/login",
-    "/register",
-    "/verify-email",
-    "/payment/:path*",
-    "/api/:path*",
+    "/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)",
   ],
 };
