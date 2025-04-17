@@ -14,14 +14,14 @@
         devShell = pkgs.mkShell {
           buildInputs = [
             pkgs.nodejs_20
-            pkgs.yarn
+            pkgs.nodePackages.pnpm
             pkgs.git
             pkgs.ffmpeg # For media processing
           ];
           shellHook = ''
             echo "🚀 Welcome to the TransAIJournaller development environment!"
-            echo "Run 'yarn install' to install dependencies"
-            echo "Run 'yarn dev' to start the development server"
+            echo "Run 'pnpm install' to install dependencies"
+            echo "Run 'pnpm dev' to start the development server"
           '';
         };
 
@@ -33,13 +33,13 @@
           
           buildInputs = [
             pkgs.nodejs_20
-            pkgs.yarn
+            pkgs.nodePackages.pnpm
           ];
           
           buildPhase = ''
             export HOME=$(mktemp -d)
-            yarn install --frozen-lockfile
-            yarn build
+            pnpm install --frozen-lockfile
+            pnpm build
           '';
           
           installPhase = ''
