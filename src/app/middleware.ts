@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
-import { updateSession } from "@/utils/supabase/middleware";
+import { updateSession } from "@/app/utils/supabase/middleware";
 
 // --- Rate Limiting Configuration ---
 const RATE_LIMIT_WINDOW_MS = 60 * 1000; // 1 minute

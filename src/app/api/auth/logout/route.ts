@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { signOut } from "@/utils/supabase";
+import { signOut } from "@/app/utils/supabase";
 
 export async function GET(request: NextRequest) {
   try {

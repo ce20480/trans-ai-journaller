@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
-import { verifyAuth } from "@/utils/auth";
-import { transcribeFile } from "@/utils/transcription";
+import { verifyAuth } from "@/app/utils/auth";
+import { transcribeFile } from "@/app/utils/transcription";
 
 export async function POST(request: NextRequest) {
   // Check authentication
