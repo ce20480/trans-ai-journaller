@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { writeFile } from "fs/promises";
 import { join } from "path";
 import { mkdir } from "fs/promises";
-import { verifyAuth } from "@/utils/auth";
+import { verifyAuth } from "@/app/utils/auth";
 
 // Configuration
 const MAX_FILE_SIZE = 100 * 1024 * 1024; // 100MB

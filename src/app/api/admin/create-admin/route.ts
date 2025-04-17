@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { createAdminClient, requireAdmin } from "@/utils/supabase";
+import { createAdminClient, requireAdmin } from "@/app/utils/supabase";
 
 // Secure endpoint for creating admin users - only accessible to existing admins
 export async function POST(request: NextRequest) {

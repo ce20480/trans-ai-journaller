@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { supabase } from "@/utils/supabase";
+import { supabase } from "@/app/utils/supabase";
 import { Resend } from "resend";
 
 // Initialize Resend for email

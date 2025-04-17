@@ -3,7 +3,7 @@ import {
   createAdminClient,
   requireAdmin,
   WaitlistUser,
-} from "@/utils/supabase";
+} from "@/app/utils/supabase";
 
 // Helper function to convert array of objects to CSV
 function convertToCSV(data: WaitlistUser[]) {

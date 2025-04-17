@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
-import { verifyAuth } from "@/utils/auth";
-import { processWithLLM } from "@/utils/llm";
+import { verifyAuth } from "@/app/utils/auth";
+import { processWithLLM } from "@/app/utils/llm";
 
 // Helper function to parse the LLM output into an array of summary points
 function parseSummaryText(text: string): string[] {
