@@ -1,0 +1,40 @@
+@import "tailwindcss";
+
+:root {
+  --background: #ffffff;
+  --foreground: #111827; /* Dark Gray */
+  --primary: #facc15; /* CTA Yellow */
+  --primary-hover: #fde047; /* CTA Hover Yellow */
+  --secondary: #f8f8f8;
+  --accent: #facc15;
+  --card-bg: #f0f0f0;
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-primary: var(--primary);
+  --font-sans: var(--font-geist-sans);
+  --font-mono: var(--font-geist-mono);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --background: #0d0d0d; /* Dark background */
+    --foreground: #ffffff; /* Primary text */
+    --primary: #facc15; /* CTA Yellow */
+    --primary-hover: #fde047; /* CTA Hover Yellow */
+    --secondary: #1a1a1a; /* Accent background */
+    --accent: #facc15; /* Yellow accent */
+    --card-bg: #262626; /* Card backgrounds */
+    --text-secondary: #b3b3b3; /* Secondary text */
+  }
+}
+
+body {
+  background: var(--background);
+  color: var(--foreground);
+  font-family: var(--font-geist-sans);
+}
+
+/* Add smooth scrolling */
+html {
+  scroll-behavior: smooth;
+}
