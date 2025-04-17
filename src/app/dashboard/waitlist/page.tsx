@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import Link from "next/link";
 import { WaitlistUser } from "@/utils/supabase";
 
@@ -23,37 +23,42 @@ export default function WaitlistAdmin() {
   const [isExporting, setIsExporting] = useState(false);
 
   // Function to fetch waitlist data
-  const fetchWaitlistData = async (searchQuery = "", offset = 0) => {
-    setIsLoading(true);
-    setError(null);
+  const fetchWaitlistData = useCallback(
+    async (searchQuery = "", offset = 0) => {
+      setIsLoading(true);
+      setError(null);
 
-    try {
-      const params = new URLSearchParams({
-        limit: pagination.limit.toString(),
-        offset: offset.toString(),
-      });
+      try {
+        const params = new URLSearchParams({
+          limit: pagination.limit.toString(),
+          offset: offset.toString(),
+        });
 
-      if (searchQuery) {
-        params.append("search", searchQuery);
+        if (searchQuery) {
+          params.append("search", searchQuery);
+        }
+
+        const response = await fetch(
+          `/api/admin/waitlist?${params.toString()}`
+        );
+
+        if (!response.ok) {
+          const errorData = await response.json();
+          throw new Error(errorData.error || "Failed to fetch waitlist data");
+        }
+
+        const data = await response.json();
+        setWaitlistEntries(data.data);
+        setPagination(data.pagination);
+      } catch (err) {
+        setError((err as Error).message || "An error occurred");
+        console.error("Error fetching waitlist data:", err);
+      } finally {
+        setIsLoading(false);
       }
-
-      const response = await fetch(`/api/admin/waitlist?${params.toString()}`);
-
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || "Failed to fetch waitlist data");
-      }
-
-      const data = await response.json();
-      setWaitlistEntries(data.data);
-      setPagination(data.pagination);
-    } catch (err) {
-      setError((err as Error).message || "An error occurred");
-      console.error("Error fetching waitlist data:", err);
-    } finally {
-      setIsLoading(false);
-    }
-  };
+    },
+    [pagination.limit]
+  );
 
   // Function to delete an entry
   const deleteEntry = async (id: string) => {
@@ -121,7 +126,7 @@ export default function WaitlistAdmin() {
   // Load data on initial render
   useEffect(() => {
     fetchWaitlistData();
-  }, []);
+  }, [fetchWaitlistData]);
 
   // Calculate pagination values
   const totalPages = Math.ceil(pagination.total / pagination.limit);
