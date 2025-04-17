@@ -44,7 +44,7 @@ export default function Payment() {
     };
 
     checkAuth();
-  }, [router, supabase.auth]);
+  }, [router, supabase, supabase.auth]);
 
   const handleCheckout = async () => {
     if (!user) return;
