@@ -1,70 +1,28 @@
 "use client";
 
 import { useState } from "react";
-import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { createClientComponentClient } from "@supabase/auth-helpers-nextjs";
+import { login } from "../actions/login/actions";
 
 export default function Login() {
-  const supabase = createClientComponentClient();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
-  const router = useRouter();
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setError(null);
+  const handleSubmit = async (formData: FormData) => {
     setIsLoading(true);
+    setError(null);
 
     try {
-      // Sign in with Supabase client-side
-      const { data, error } = await supabase.auth.signInWithPassword({
-        email,
-        password,
-      });
+      // Use the server action to handle login
+      const result = await login(formData);
 
-      if (error) {
-        throw new Error(error.message || "Login failed");
+      // If there's an error returned from the server action
+      if (result?.error) {
+        setError(result.error);
       }
-
-      if (!data.user) {
-        throw new Error("No user returned from authentication");
-      }
-
-      // Check subscription status before redirecting
-      const { data: profile } = await supabase
-        .from("profiles")
-        .select("subscription_status")
-        .eq("id", data.user.id)
-        .single();
-
-      // Get user role from metadata
-      const userRole = data.user.user_metadata?.role || "user";
-      const isAdmin = userRole === "admin";
-      const isBetaTester = userRole === "beta-tester";
-
-      // Determine if user has premium access (admin, beta tester, or active subscription)
-      const hasPremiumAccess =
-        isAdmin || isBetaTester || profile?.subscription_status === "active";
-
-      if (hasPremiumAccess) {
-        // If user has premium access, go to dashboard
-        console.log("User has premium access, redirecting to dashboard...");
-        router.push("/dashboard");
-      } else {
-        // If user doesn't have premium access, go to payment
-        console.log("User needs subscription, redirecting to payment...");
-        router.push("/payment");
-      }
-
-      // Fallback redirect in case router.push doesn't work
-      setTimeout(() => {
-        console.log("Fallback redirect activated");
-        window.location.href = hasPremiumAccess ? "/dashboard" : "/payment";
-      }, 500);
-    } catch (err: unknown) {
+    } catch (err) {
       console.error("Login error:", err);
       setError(
         err instanceof Error ? err.message : "An unexpected error occurred"
@@ -91,7 +49,7 @@ export default function Login() {
           </div>
         )}
 
-        <form onSubmit={handleSubmit} className="space-y-6">
+        <form action={handleSubmit} className="space-y-6">
           <div>
             <label
               htmlFor="email"
@@ -101,6 +59,7 @@ export default function Login() {
             </label>
             <input
               id="email"
+              name="email"
               type="email"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
@@ -118,6 +77,7 @@ export default function Login() {
             </label>
             <input
               id="password"
+              name="password"
               type="password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
