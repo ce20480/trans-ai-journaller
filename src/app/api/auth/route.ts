@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { signIn } from "@/app/utils/supabase";
+import { signIn } from "@/utils/supabase";
 
 // Log environment status on first load
 console.log("Auth API Environment Check:", {

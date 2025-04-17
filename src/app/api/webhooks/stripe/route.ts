@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { createAdminClient } from "@/app/utils/supabase";
+import { createAdminClient } from "@/utils/supabase";
 import Stripe from "stripe";
 
 // Initialize Stripe with the secret key

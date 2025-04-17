@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback } from "react";
 import Link from "next/link";
-import { WaitlistUser } from "@/app/utils/supabase";
+import { WaitlistUser } from "@/utils/supabase";
 
 interface PaginationInfo {
   total: number;

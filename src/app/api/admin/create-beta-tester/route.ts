@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { createAdminClient, requireAdmin } from "@/app/utils/supabase";
+import { createAdminClient, requireAdmin } from "@/utils/supabase";
 
 // Endpoint for creating beta tester users - only accessible to admins
 export async function POST(request: NextRequest) {

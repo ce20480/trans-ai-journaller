@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { verifyAuth } from "@/app/utils/supabase";
+import { verifyAuth } from "@/utils/supabase";
 import Stripe from "stripe";
 
 // Initialize Stripe

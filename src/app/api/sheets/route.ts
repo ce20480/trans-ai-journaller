@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
-import { verifyAuth } from "@/app/utils/auth";
-import { writeToGoogleSheets } from "@/app/utils/googleSheets";
+import { verifyAuth } from "@/utils/auth";
+import { writeToGoogleSheets } from "@/utils/googleSheets";
 
 export async function POST(request: NextRequest) {
   // Check authentication
