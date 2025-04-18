@@ -33,7 +33,7 @@ export default function DashboardLayout({
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-[#0d0d0d] to-[#121212] text-white flex flex-col">
+    <div className="min-h-screen bg-[#010101] text-white flex flex-col">
       {/* mobile top bar */}
       <header className="bg-black/40 backdrop-blur-lg border-b border-white/10 p-4 flex md:hidden items-center justify-between">
         <Link

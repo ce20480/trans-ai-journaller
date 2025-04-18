@@ -17,7 +17,7 @@ export default function Login() {
   const [password, setPassword] = useState("");
 
   return (
-    <div className="min-h-screen flex flex-col justify-center items-center bg-[#0d0d0d] p-4">
+    <div className="min-h-screen flex flex-col justify-center items-center bg-[#010101] p-4">
       <div className="w-full max-w-md p-8 bg-[#1a1a1a] rounded-xl shadow-2xl">
         <div className="text-center mb-8">
           <Link href="/" className="inline-block mb-4">

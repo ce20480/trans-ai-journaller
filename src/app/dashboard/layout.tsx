@@ -10,14 +10,14 @@ export default async function DashboardAreaLayout({
 }) {
   const supabase = await createServerClient();
   const {
-    data: { session },
-  } = await supabase.auth.getSession();
+    data: { user },
+    error,
+  } = await supabase.auth.getUser();
 
-  if (!session) {
+  if (error || !user) {
     return redirect(`/login?redirect=/dashboard`);
   }
 
-  const { user } = session;
   const role = user.user_metadata?.role;
 
   // Non‑admins need an active subscription
