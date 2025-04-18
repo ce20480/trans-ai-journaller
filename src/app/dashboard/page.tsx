@@ -179,91 +179,68 @@ export default function Dashboard() {
     setCurrentStep("uploading");
 
     try {
-      // Step 1: Upload file
-      console.log("Starting file upload");
+      // ─── 1) STREAM UPLOAD ─────────────────────────────────────────────
       const formData = new FormData();
       formData.append("file", file);
 
-      const uploadResponse = await fetch("/api/upload", {
+      const uploadRes = await fetch("/api/upload", {
         method: "POST",
         body: formData,
       });
+      const uploadJson = await uploadRes.json();
 
-      const uploadData = await uploadResponse.json();
-
-      if (!uploadResponse.ok) {
-        const errorMsg = uploadData.error || "Upload failed";
-        const details = uploadData.details || uploadData.supportedTypes || "";
-        console.error("Upload error:", { errorMsg, details });
-        throw new Error(errorMsg, { cause: details });
+      if (!uploadRes.ok) {
+        const msg = uploadJson.error || "Upload failed";
+        throw new Error(msg, { cause: uploadJson.details });
       }
+      const { uploadUrl } = uploadJson;
+      console.log("Received uploadUrl:", uploadUrl);
 
-      console.log("File uploaded successfully", uploadData);
-
-      // Step 2: Transcribe file
+      // ─── 2) TRANSCRIBE ────────────────────────────────────────────────
       setCurrentStep("transcribing");
       setIsProcessing(true);
-      console.log("Starting transcription");
-      const transcribeResponse = await fetch("/api/transcribe", {
+
+      const transcribeRes = await fetch("/api/transcribe", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ filePath: uploadData.filePath }),
+        body: JSON.stringify({ uploadUrl }),
       });
+      const transcribeJson = await transcribeRes.json();
 
-      const transcribeData = await transcribeResponse.json();
-
-      if (!transcribeResponse.ok) {
-        const errorMsg = transcribeData.error || "Transcription failed";
-        const details = transcribeData.details || "";
-        console.error("Transcription error:", { errorMsg, details });
-        throw new Error(errorMsg, { cause: details });
+      if (!transcribeRes.ok) {
+        const msg = transcribeJson.error || "Transcription failed";
+        throw new Error(msg, { cause: transcribeJson.details });
       }
+      const transcription = transcribeJson.transcription;
+      console.log("Transcription completed:", transcription);
 
-      console.log("Transcription completed");
-
-      // Step 3: Process with LLM
+      // ─── 3) LLM ANALYSIS ──────────────────────────────────────────────
       setCurrentStep("analyzing");
-      console.log("Starting LLM analysis");
-      const summarizeResponse = await fetch("/api/summarize", {
+
+      const summarizeRes = await fetch("/api/summarize", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ transcription: transcribeData.transcription }),
+        body: JSON.stringify({ transcription }),
       });
+      const summarizeJson = await summarizeRes.json();
 
-      const summarizeData = await summarizeResponse.json();
-
-      if (!summarizeResponse.ok) {
-        const errorMsg = summarizeData.error || "Summarization failed";
-        const details = summarizeData.details || "";
-        console.error("Summarization error:", { errorMsg, details });
-        throw new Error(errorMsg, { cause: details });
+      if (!summarizeRes.ok) {
+        const msg = summarizeJson.error || "Summarization failed";
+        throw new Error(msg, { cause: summarizeJson.details });
       }
-
-      if (
-        !summarizeData.summary ||
-        !Array.isArray(summarizeData.summary) ||
-        summarizeData.summary.length === 0
-      ) {
-        console.error("Summarization returned empty or invalid data");
-        throw new Error("Failed to generate summary: No data returned", {
-          cause: "The LLM process returned empty results",
-        });
+      const summaryArray = summarizeJson.summary;
+      if (!Array.isArray(summaryArray) || summaryArray.length === 0) {
+        throw new Error("Failed to generate summary: no data returned");
       }
+      console.log("LLM analysis completed:", summaryArray);
 
-      console.log("LLM analysis completed");
-
-      // Step 4: Write to Supabase
+      // ─── 4) SAVE TO SUPABASE ──────────────────────────────────────────
       setCurrentStep("saving");
-      console.log("Saving to Supabase");
-
-      // Get the suggested tag from the response or default to empty
-      const aiTag = summarizeData.suggestedTag || "";
+      const aiTag = summarizeJson.suggestedTag || "";
       setSuggestedTag(aiTag);
-      setCustomTag(aiTag); // Initialize custom tag with the suggested one
+      setCustomTag(aiTag);
 
-      // Prepare summary content
-      const summaryContent = summarizeData.summary.join("\n");
-
+      const summaryContent = summaryArray.join("\n");
       const {
         data: { session },
         error: sessionError,
@@ -274,53 +251,36 @@ export default function Dashboard() {
       }
 
       const userId = session.user.id;
-
-      // Save to Supabase
       const { error: saveError } = await supabase.from("notes").insert([
         {
           title: `Idea from ${new Date().toLocaleString()}`,
-          content: transcribeData.transcription,
+          content: transcription,
           summary: summaryContent,
           tag: aiTag,
           source: "dashboard_upload",
           user_id: userId,
         },
       ]);
-
       if (saveError) {
-        console.error("Failed to save to Supabase:", saveError);
         throw new Error("Failed to save to database", {
           cause: saveError.message,
         });
       }
-
       console.log("Data saved to Supabase");
 
-      // Set results
-      setSummary(summarizeData.summary);
+      setSummary(summaryArray);
 
-      // Reset form
-      if (fileInputRef.current) {
-        fileInputRef.current.value = "";
-      }
+      // ─── 5) RESET UI ─────────────────────────────────────────────────
+      if (fileInputRef.current) fileInputRef.current.value = "";
       setFile(null);
       setAudioBlob(null);
-      if (audioURL) {
-        URL.revokeObjectURL(audioURL);
-        setAudioURL(null);
-      }
+      if (audioURL) URL.revokeObjectURL(audioURL);
       setCurrentStep("idle");
     } catch (err: unknown) {
       console.error("Process error:", err);
-      if (err instanceof Error) {
-        setError(err.message);
-
-        // Handle error cause for detailed error information
-        const errorWithCause = err as Error & { cause?: string };
-        setErrorDetails(errorWithCause.cause || null);
-      } else {
-        setError("An unexpected error occurred");
-      }
+      const e = err as Error & { cause?: string };
+      setError(e.message);
+      setErrorDetails(e.cause ?? null);
     } finally {
       setIsUploading(false);
       setIsProcessing(false);
