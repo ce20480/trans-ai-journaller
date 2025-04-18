@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import TextField from "./TextField";
 
 // Match the email regex from the server
 const EMAIL_REGEX =
@@ -18,11 +19,13 @@ export default function WaitlistForm() {
     name?: string;
   }>({});
 
+  const clearError = (field: "email" | "name") =>
+    setValidationErrors((prev) => ({ ...prev, [field]: undefined }));
+
   const validateInputs = () => {
     const errors: { email?: string; name?: string } = {};
     let isValid = true;
 
-    // Validate email
     if (!email) {
       errors.email = "Email is required";
       isValid = false;
@@ -31,7 +34,6 @@ export default function WaitlistForm() {
       isValid = false;
     }
 
-    // Validate name (optional but with length check)
     if (name && name.length > 100) {
       errors.name = "Name must be less than 100 characters";
       isValid = false;
@@ -43,16 +45,11 @@ export default function WaitlistForm() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-
-    // Clear previous messages
     setMessage("");
     setIsError(false);
     setIsSuccess(false);
 
-    // Validate inputs
-    if (!validateInputs()) {
-      return;
-    }
+    if (!validateInputs()) return;
 
     setIsSubmitting(true);
 
@@ -71,9 +68,7 @@ export default function WaitlistForm() {
 
       const data = await response.json();
 
-      if (!response.ok) {
-        throw new Error(data.error || "Something went wrong");
-      }
+      if (!response.ok) throw new Error(data.error || "Something went wrong");
 
       setIsSuccess(true);
       setMessage(data.message || "Thanks for joining our waitlist!");
@@ -103,66 +98,31 @@ export default function WaitlistForm() {
         </div>
       ) : (
         <form onSubmit={handleSubmit} className="space-y-4">
-          <div>
-            <label htmlFor="name" className="block text-[#b3b3b3] text-sm mb-1">
-              Your Name (Optional)
-            </label>
-            <input
-              type="text"
-              id="name"
-              value={name}
-              onChange={(e) => {
-                setName(e.target.value);
-                if (validationErrors.name) {
-                  setValidationErrors({
-                    ...validationErrors,
-                    name: undefined,
-                  });
-                }
-              }}
-              placeholder="Jane Doe"
-              className={`w-full px-4 py-2 rounded-lg bg-[#262626] border ${
-                validationErrors.name ? "border-red-500" : "border-[#373737]"
-              } text-white focus:outline-none focus:ring-2 focus:ring-[#facc15] focus:border-transparent`}
-            />
-            {validationErrors.name && (
-              <p className="text-red-500 text-xs mt-1">
-                {validationErrors.name}
-              </p>
-            )}
-          </div>
-          <div>
-            <label
-              htmlFor="email"
-              className="block text-[#b3b3b3] text-sm mb-1"
-            >
-              Your Email *
-            </label>
-            <input
-              type="email"
-              id="email"
-              value={email}
-              onChange={(e) => {
-                setEmail(e.target.value);
-                if (validationErrors.email) {
-                  setValidationErrors({
-                    ...validationErrors,
-                    email: undefined,
-                  });
-                }
-              }}
-              placeholder="you@example.com"
-              required
-              className={`w-full px-4 py-2 rounded-lg bg-[#262626] border ${
-                validationErrors.email ? "border-red-500" : "border-[#373737]"
-              } text-white focus:outline-none focus:ring-2 focus:ring-[#facc15] focus:border-transparent`}
-            />
-            {validationErrors.email && (
-              <p className="text-red-500 text-xs mt-1">
-                {validationErrors.email}
-              </p>
-            )}
-          </div>
+          <TextField
+            label="Your Name (Optional)"
+            name="name"
+            value={name}
+            onChange={(val) => {
+              setName(val);
+              clearError("name");
+            }}
+            error={validationErrors.name}
+            placeholder="Jane Doe"
+          />
+
+          <TextField
+            label="Your Email *"
+            name="email"
+            value={email}
+            onChange={(val) => {
+              setEmail(val);
+              clearError("email");
+            }}
+            error={validationErrors.email}
+            type="email"
+            placeholder="you@example.com"
+            required
+          />
 
           {isError && <p className="text-red-500 text-sm">{message}</p>}
 

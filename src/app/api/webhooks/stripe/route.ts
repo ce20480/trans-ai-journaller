@@ -1,200 +1,133 @@
-import { NextRequest, NextResponse } from "next/server";
-import { createAdminClient } from "@/utils/supabase";
-import Stripe from "stripe";
+export const runtime = "nodejs";
 
-// Initialize Stripe with the secret key
+import { NextRequest, NextResponse } from "next/server";
+import Stripe from "stripe";
+import { createAdminClient } from "@/utils/supabase/admin";
+
 const stripe = new Stripe(process.env.STRIPE_API_KEY!, {
-  apiVersion: "2025-03-31.basil", // Use the latest API version
+  apiVersion: "2025-03-31.basil",
 });
+const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET!;
 
 export async function POST(request: NextRequest) {
+  // 1) Grab raw body & signature header
+  const body = await request.text();
+  const signature = request.headers.get("stripe-signature");
+  if (!signature) {
+    console.error("⚠️ Missing Stripe signature header");
+    return new NextResponse("Missing signature", { status: 400 });
+  }
+
+  // 2) Construct & verify the event (with 5min tolerance)
+  let event: Stripe.Event;
+  const tolerance = 300;
   try {
-    // Get the raw body data
-    const body = await request.text();
-    const signature = request.headers.get("stripe-signature") as string;
+    event = stripe.webhooks.constructEvent(
+      body,
+      signature,
+      webhookSecret,
+      tolerance
+    );
+  } catch (err) {
+    console.error("⚠️ Webhook signature verification failed:", err);
+    return new NextResponse("Invalid signature", { status: 400 });
+  }
 
-    if (!signature) {
-      return NextResponse.json(
-        { error: "Missing Stripe signature" },
-        { status: 400 }
-      );
+  // 3) Create your admin Supabase client
+  const supabaseAdmin = createAdminClient();
+
+  // 4) Handle each event type
+  switch (event.type) {
+    case "checkout.session.completed": {
+      const session = event.data.object as Stripe.Checkout.Session;
+      const userId = session.client_reference_id;
+      const subscriptionId = session.subscription as string;
+      if (!userId || !subscriptionId) {
+        console.error("Missing client_reference_id or subscription in session");
+        return new NextResponse("Bad session data", { status: 400 });
+      }
+      const { error } = await supabaseAdmin
+        .from("profiles")
+        .update({
+          subscription_id: subscriptionId,
+          subscription_status: "active",
+          updated_at: new Date().toISOString(),
+        })
+        .eq("id", userId);
+      if (error) {
+        console.error("Error updating profile on checkout:", error);
+        return new NextResponse("Database update failed", { status: 500 });
+      }
+      console.log(`✅ Activated subscription for user ${userId}`);
+      break;
     }
 
-    // Verify the webhook signature
-    let event: Stripe.Event;
-    try {
-      event = stripe.webhooks.constructEvent(
-        body,
-        signature,
-        process.env.STRIPE_WEBHOOK_SECRET!
-      );
-    } catch (err) {
-      console.error(`⚠️ Webhook signature verification failed:`, err);
-      return NextResponse.json({ error: "Invalid signature" }, { status: 400 });
-    }
-
-    // Create admin client to update user profiles
-    const supabaseAdmin = createAdminClient();
-
-    // Handle specific events
-    switch (event.type) {
-      case "checkout.session.completed": {
-        const session = event.data.object as Stripe.Checkout.Session;
-        const userId = session.client_reference_id;
-        const subscriptionId = session.subscription as string;
-
-        if (!userId || !subscriptionId) {
-          console.error("Missing userId or subscriptionId in session", session);
-          return NextResponse.json(
-            { error: "Missing reference data" },
-            { status: 400 }
-          );
-        }
-
-        // Update user's profile with subscription info
-        const { error } = await supabaseAdmin
-          .from("profiles")
-          .update({
-            subscription_id: subscriptionId,
-            subscription_status: "active",
-            updated_at: new Date().toISOString(),
-          })
-          .eq("id", userId);
-
-        if (error) {
-          console.error("Error updating profile subscription:", error);
-          return NextResponse.json(
-            { error: "Database update failed" },
-            { status: 500 }
-          );
-        }
-
-        console.log(`🔔 Subscription activated for user ${userId}`);
-        break;
-      }
-
-      case "customer.subscription.updated": {
-        const subscription = event.data.object as Stripe.Subscription;
-
-        // Get the userId from the subscription metadata
-        const customerId = subscription.customer as string;
-
-        // Get the customer to find the user
-        const customer = await stripe.customers.retrieve(customerId);
-        if (customer.deleted) {
-          console.error("Customer has been deleted");
-          return NextResponse.json(
-            { error: "Customer not found" },
-            { status: 400 }
-          );
-        }
-
-        // Find user by their email
-        const email = customer.email;
-        if (!email) {
-          console.error("Customer email not found");
-          return NextResponse.json(
-            { error: "Email not found" },
-            { status: 400 }
-          );
-        }
-
-        // Find user profile with this email
-        const { data: userProfiles } = await supabaseAdmin
-          .from("profiles")
-          .select("id")
-          .eq("email", email);
-
-        if (!userProfiles || userProfiles.length === 0) {
-          console.error(`No user found with email ${email}`);
-          return NextResponse.json(
-            { error: "User not found" },
-            { status: 404 }
-          );
-        }
-
-        // Update user's subscription status based on Stripe status
-        const status = subscription.status;
-        const userId = userProfiles[0].id;
-
-        const { error } = await supabaseAdmin
-          .from("profiles")
-          .update({
-            subscription_status: status === "active" ? "active" : "cancelled",
-            updated_at: new Date().toISOString(),
-          })
-          .eq("id", userId);
-
-        if (error) {
-          console.error("Error updating subscription status:", error);
-          return NextResponse.json(
-            { error: "Database update failed" },
-            { status: 500 }
-          );
-        }
-
-        console.log(`🔔 Subscription updated for user ${userId} to ${status}`);
-        break;
-      }
-
-      case "customer.subscription.deleted": {
-        const subscription = event.data.object as Stripe.Subscription;
-
-        // Find the profile with this subscription_id
+    case "customer.subscription.updated":
+    case "customer.subscription.deleted": {
+      const subscription = event.data.object as Stripe.Subscription;
+      // Look up profile by subscription_id (for deleted) or by customer email (for updated)
+      if (event.type === "customer.subscription.deleted") {
         const { data: profiles } = await supabaseAdmin
           .from("profiles")
           .select("id")
           .eq("subscription_id", subscription.id);
-
-        if (!profiles || profiles.length === 0) {
-          console.error(
-            `No profile found with subscription ID ${subscription.id}`
-          );
-          return NextResponse.json(
-            { error: "Profile not found" },
-            { status: 404 }
-          );
+        const userId = profiles?.[0]?.id;
+        if (!userId) {
+          console.error(`No profile for subscription ${subscription.id}`);
+          break;
         }
-
-        // Update user's subscription status to cancelled
-        const userId = profiles[0].id;
-        const { error } = await supabaseAdmin
+        await supabaseAdmin
           .from("profiles")
           .update({
             subscription_status: "cancelled",
             updated_at: new Date().toISOString(),
           })
           .eq("id", userId);
-
-        if (error) {
-          console.error("Error updating subscription status:", error);
-          return NextResponse.json(
-            { error: "Database update failed" },
-            { status: 500 }
-          );
+        console.log(`🔔 Cancelled subscription for user ${userId}`);
+      } else {
+        // subscription.updated
+        const customer = await stripe.customers.retrieve(
+          subscription.customer as string
+        );
+        const email = (customer as Stripe.Customer).email;
+        if (!email) {
+          console.error("No email on Stripe customer");
+          break;
         }
-
-        console.log(`🔔 Subscription cancelled for user ${userId}`);
-        break;
+        const { data: profiles } = await supabaseAdmin
+          .from("profiles")
+          .select("id")
+          .eq("email", email);
+        const userId = profiles?.[0]?.id;
+        if (!userId) {
+          console.error(`No profile for email ${email}`);
+          break;
+        }
+        const newStatus =
+          subscription.status === "active" ? "active" : "cancelled";
+        await supabaseAdmin
+          .from("profiles")
+          .update({
+            subscription_status: newStatus,
+            updated_at: new Date().toISOString(),
+          })
+          .eq("id", userId);
+        console.log(
+          `🔔 Updated subscription status for user ${userId} → ${newStatus}`
+        );
       }
-
-      default:
-        // Ignore other events
-        console.log(`Unhandled event type: ${event.type}`);
+      break;
     }
 
-    // Return a 200 response to acknowledge receipt of the event
-    return NextResponse.json({ received: true });
-  } catch (error) {
-    console.error("Webhook error:", error);
-    return NextResponse.json(
-      { error: "Webhook handler failed" },
-      { status: 500 }
-    );
+    default:
+      console.log(`ℹ️  Unhandled Stripe event type: ${event.type}`);
   }
+
+  // 5) Acknowledge receipt
+  return new NextResponse(null, { status: 200 });
 }
 
-// Only accept POST requests
-export async function GET() {
-  return NextResponse.json({ error: "Method not allowed" }, { status: 405 });
+export function GET() {
+  // We only allow POST here
+  return new NextResponse("Method Not Allowed", { status: 405 });
 }

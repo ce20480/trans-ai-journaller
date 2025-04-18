@@ -1,14 +1,10 @@
 import Link from "next/link";
 import Image from "next/image";
 import WaitlistSection from "@/components/WaitlistSection";
-import Navigation from "@/components/Navigation";
 
 export default function Home() {
   return (
     <div className="min-h-screen flex flex-col bg-[#0d0d0d] text-white">
-      {/* Navigation */}
-      <Navigation />
-
       {/* Hero Section */}
       <section className="py-20 flex-grow">
         <div className="container mx-auto px-6">
@@ -173,6 +169,19 @@ export default function Home() {
                 style={{ height: "auto" }}
                 className="rounded-lg shadow-lg"
               />
+              <div className="mt-10">
+                <h2 className="text-3xl font-bold text-white mb-6">
+                  You think Einstein kept his thoughts in his head?
+                </h2>
+                <p className="text-[#b3b3b3] mb-4">
+                  No of course not, he wrote them down but we have something
+                  better! A digital brain!
+                </p>
+                <p className="text-[#b3b3b3] mb-6">
+                  T2A is your digital brain, capturing every thought and idea
+                  you have. Eistein would have loved it!
+                </p>
+              </div>
             </div>
           </div>
         </div>
@@ -186,27 +195,66 @@ export default function Home() {
       {/* Final CTA Section */}
       <section className="py-16 bg-[#262626]">
         <div className="container mx-auto px-6">
-          <div className="max-w-3xl">
-            <h2 className="text-3xl font-bold text-white mb-8">Just T2A it.</h2>
-            <Link
-              href="#join-waitlist"
-              className="bg-[#facc15] hover:bg-[#fde047] text-black px-8 py-3 rounded-lg text-lg font-semibold inline-flex items-center transition-all shadow-lg hover:shadow-[#facc15]/30 hover:translate-y-[-2px]"
-            >
-              <svg
-                className="w-5 h-5 mr-2"
-                fill="none"
-                viewBox="0 0 24 24"
-                stroke="currentColor"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth="2"
-                  d="M13 10V3L4 14h7v7l9-11h-7z"
+          <div className="grid md:grid-cols-2 gap-10 items-center">
+            <div className="flex flex-col space-y-6">
+              <h2 className="text-3xl font-bold text-white">Just T2A it.</h2>
+              <p className="text-[#b3b3b3] max-w-md">
+                Record, transcribe, and store your brilliant ideas with a single
+                click. Never lose track of what matters most.
+              </p>
+              <div className="pt-4">
+                <Link
+                  href="#join-waitlist"
+                  className="bg-[#facc15] hover:bg-[#fde047] text-black px-8 py-3 rounded-lg text-lg font-semibold inline-flex items-center transition-all shadow-lg hover:shadow-[#facc15]/30 hover:translate-y-[-2px]"
+                >
+                  <svg
+                    className="w-5 h-5 mr-2"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                    stroke="currentColor"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth="2"
+                      d="M13 10V3L4 14h7v7l9-11h-7z"
+                    />
+                  </svg>
+                  Join Waitlist
+                </Link>
+              </div>
+            </div>
+            <div className="flex justify-center">
+              <div className="relative">
+                <div className="absolute -top-20 -left-10">
+                  <svg
+                    width="80"
+                    height="80"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    xmlns="http://www.w3.org/2000/svg"
+                    className="text-[#facc15]"
+                  >
+                    <path
+                      d="M13 6V3L4 14h7v7l9-11h-7z"
+                      fill="currentColor"
+                      stroke="currentColor"
+                      strokeWidth="1"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                    />
+                  </svg>
+                </div>
+                <Image
+                  src="/ChatGPT Image Apr 15 2025 from Media Encoder.png"
+                  alt="T2A capture your ideas"
+                  width={400}
+                  height={300}
+                  style={{ height: "auto" }}
+                  className="rounded-lg shadow-2xl shadow-[#facc15]/10"
                 />
-              </svg>
-              Join Waitlist
-            </Link>
+              </div>
+            </div>
           </div>
         </div>
       </section>

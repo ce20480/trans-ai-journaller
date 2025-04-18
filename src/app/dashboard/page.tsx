@@ -17,6 +17,9 @@ export default function Dashboard() {
   >("idle");
   const [isAuthenticated, setIsAuthenticated] = useState<boolean | null>(null);
   const [summary, setSummary] = useState<string[]>([]);
+  const [suggestedTag, setSuggestedTag] = useState<string>("");
+  const [customTag, setCustomTag] = useState<string>("");
+  const [isEditingTag, setIsEditingTag] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const router = useRouter();
 
@@ -34,11 +37,11 @@ export default function Dashboard() {
     const checkAuth = async () => {
       try {
         const {
-          data: { session },
+          data: { user },
           error,
-        } = await supabase.auth.getSession();
+        } = await supabase.auth.getUser();
 
-        if (error || !session) {
+        if (error || !user) {
           router.push("/login");
           return;
         }
@@ -176,130 +179,192 @@ export default function Dashboard() {
     setCurrentStep("uploading");
 
     try {
-      // Step 1: Upload file
-      console.log("Starting file upload");
+      // ─── 1) STREAM UPLOAD ─────────────────────────────────────────────
       const formData = new FormData();
       formData.append("file", file);
 
-      const uploadResponse = await fetch("/api/upload", {
+      const uploadRes = await fetch("/api/upload", {
         method: "POST",
         body: formData,
       });
+      const uploadJson = await uploadRes.json();
 
-      const uploadData = await uploadResponse.json();
-
-      if (!uploadResponse.ok) {
-        const errorMsg = uploadData.error || "Upload failed";
-        const details = uploadData.details || uploadData.supportedTypes || "";
-        console.error("Upload error:", { errorMsg, details });
-        throw new Error(errorMsg, { cause: details });
+      if (!uploadRes.ok) {
+        const msg = uploadJson.error || "Upload failed";
+        throw new Error(msg, { cause: uploadJson.details });
       }
+      const { uploadUrl } = uploadJson;
+      console.log("Received uploadUrl:", uploadUrl);
 
-      console.log("File uploaded successfully", uploadData);
-
-      // Step 2: Transcribe file
+      // ─── 2) TRANSCRIBE ────────────────────────────────────────────────
       setCurrentStep("transcribing");
       setIsProcessing(true);
-      console.log("Starting transcription");
-      const transcribeResponse = await fetch("/api/transcribe", {
+
+      const transcribeRes = await fetch("/api/transcribe", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ filePath: uploadData.filePath }),
+        body: JSON.stringify({ uploadUrl }),
       });
+      const transcribeJson = await transcribeRes.json();
 
-      const transcribeData = await transcribeResponse.json();
-
-      if (!transcribeResponse.ok) {
-        const errorMsg = transcribeData.error || "Transcription failed";
-        const details = transcribeData.details || "";
-        console.error("Transcription error:", { errorMsg, details });
-        throw new Error(errorMsg, { cause: details });
+      if (!transcribeRes.ok) {
+        const msg = transcribeJson.error || "Transcription failed";
+        throw new Error(msg, { cause: transcribeJson.details });
       }
+      const transcription = transcribeJson.transcription;
+      console.log("Transcription completed:", transcription);
 
-      console.log("Transcription completed");
-
-      // Step 3: Process with LLM
+      // ─── 3) LLM ANALYSIS ──────────────────────────────────────────────
       setCurrentStep("analyzing");
-      console.log("Starting LLM analysis");
-      const summarizeResponse = await fetch("/api/summarize", {
+
+      const summarizeRes = await fetch("/api/summarize", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ transcription: transcribeData.transcription }),
+        body: JSON.stringify({ transcription }),
       });
+      const summarizeJson = await summarizeRes.json();
 
-      const summarizeData = await summarizeResponse.json();
+      if (!summarizeRes.ok) {
+        const msg = summarizeJson.error || "Summarization failed";
+        throw new Error(msg, { cause: summarizeJson.details });
+      }
+      const summaryArray = summarizeJson.summary;
+      if (!Array.isArray(summaryArray) || summaryArray.length === 0) {
+        throw new Error("Failed to generate summary: no data returned");
+      }
+      console.log("LLM analysis completed:", summaryArray);
 
-      if (!summarizeResponse.ok) {
-        const errorMsg = summarizeData.error || "Summarization failed";
-        const details = summarizeData.details || "";
-        console.error("Summarization error:", { errorMsg, details });
-        throw new Error(errorMsg, { cause: details });
+      // ─── 4) SAVE TO SUPABASE ──────────────────────────────────────────
+      setCurrentStep("saving");
+      const aiTag = summarizeJson.suggestedTag || "";
+      setSuggestedTag(aiTag);
+      setCustomTag(aiTag);
+
+      const summaryContent = summaryArray.join("\n");
+      const {
+        data: { session },
+        error: sessionError,
+      } = await supabase.auth.getSession();
+
+      if (sessionError || !session) {
+        throw new Error("Not authenticated", { cause: sessionError?.message });
       }
 
-      if (
-        !summarizeData.summary ||
-        !Array.isArray(summarizeData.summary) ||
-        summarizeData.summary.length === 0
-      ) {
-        console.error("Summarization returned empty or invalid data");
-        throw new Error("Failed to generate summary: No data returned", {
-          cause: "The LLM process returned empty results",
+      const userId = session.user.id;
+      const { error: saveError } = await supabase.from("notes").insert([
+        {
+          title: `Idea from ${new Date().toLocaleString()}`,
+          content: transcription,
+          summary: summaryContent,
+          tag: aiTag,
+          source: "dashboard_upload",
+          user_id: userId,
+        },
+      ]);
+      if (saveError) {
+        throw new Error("Failed to save to database", {
+          cause: saveError.message,
         });
       }
+      console.log("Data saved to Supabase");
 
-      console.log("LLM analysis completed");
+      setSummary(summaryArray);
 
-      // Step 4: Write to Google Sheets
-      setCurrentStep("saving");
-      console.log("Saving to Google Sheets");
-      const sheetsResponse = await fetch("/api/sheets", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ summary: summarizeData.summary }),
-      });
-
-      const sheetsData = await sheetsResponse.json();
-
-      if (!sheetsResponse.ok) {
-        const errorMsg = sheetsData.error || "Failed to save to Google Sheets";
-        const details = sheetsData.details || "";
-        console.error("Google Sheets error:", { errorMsg, details });
-        throw new Error(errorMsg, { cause: details });
-      }
-
-      console.log("Data saved to Google Sheets");
-
-      // Set results
-      setSummary(summarizeData.summary);
-
-      // Reset form
-      if (fileInputRef.current) {
-        fileInputRef.current.value = "";
-      }
+      // ─── 5) RESET UI ─────────────────────────────────────────────────
+      if (fileInputRef.current) fileInputRef.current.value = "";
       setFile(null);
       setAudioBlob(null);
-      if (audioURL) {
-        URL.revokeObjectURL(audioURL);
-        setAudioURL(null);
-      }
+      if (audioURL) URL.revokeObjectURL(audioURL);
       setCurrentStep("idle");
     } catch (err: unknown) {
       console.error("Process error:", err);
-      if (err instanceof Error) {
-        setError(err.message);
-
-        // Handle error cause for detailed error information
-        const errorWithCause = err as Error & { cause?: string };
-        setErrorDetails(errorWithCause.cause || null);
-      } else {
-        setError("An unexpected error occurred");
-      }
+      const e = err as Error & { cause?: string };
+      setError(e.message);
+      setErrorDetails(e.cause ?? null);
     } finally {
       setIsUploading(false);
       setIsProcessing(false);
       setCurrentStep("idle");
     }
   }
+
+  // Function to regenerate tag
+  const regenerateTag = async () => {
+    if (summary.length === 0) return;
+
+    setIsProcessing(true);
+    try {
+      const fullSummary = summary.join(" ");
+      const response = await fetch("/api/generate-tag", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ summary: fullSummary }),
+      });
+
+      const data = await response.json();
+      if (!response.ok) {
+        throw new Error(data.error || "Failed to regenerate tag");
+      }
+
+      setSuggestedTag(data.tag);
+      setCustomTag(data.tag);
+    } catch (error) {
+      console.error("Error regenerating tag:", error);
+      setError("Failed to regenerate tag");
+    } finally {
+      setIsProcessing(false);
+    }
+  };
+
+  // Function to update tag in database
+  const updateTagInDatabase = async () => {
+    if (!customTag.trim()) return;
+
+    try {
+      // Get the last idea (this is a simplification, ideally we'd have the note ID)
+      const { data: latestNotes } = await supabase
+        .from("notes")
+        .select()
+        .order("created_at", { ascending: false })
+        .limit(1);
+
+      if (!latestNotes || latestNotes.length === 0) {
+        throw new Error("No notes found to update");
+      }
+
+      const noteId = latestNotes[0].id;
+
+      // Update the tag
+      const { error: updateError } = await supabase
+        .from("notes")
+        .update({ tag: customTag.trim() })
+        .eq("id", noteId);
+
+      if (updateError) {
+        throw new Error(updateError.message);
+      }
+
+      // Update was successful
+      setSuggestedTag(customTag.trim());
+      setIsEditingTag(false);
+    } catch (error) {
+      console.error("Error updating tag:", error);
+      setError("Failed to update tag in database");
+    }
+  };
+
+  // Tag emoji mapping function
+  const getTagEmoji = (tag: string): string => {
+    const lowerTag = tag.toLowerCase();
+    if (lowerTag.includes("idea") || lowerTag.includes("concept")) return "💡";
+    if (lowerTag.includes("tool") || lowerTag.includes("product")) return "🧰";
+    if (lowerTag.includes("growth") || lowerTag.includes("market")) return "📈";
+    if (lowerTag.includes("content") || lowerTag.includes("video")) return "📹";
+    if (lowerTag.includes("design") || lowerTag.includes("ui")) return "🎨";
+    if (lowerTag.includes("code") || lowerTag.includes("dev")) return "💻";
+    if (lowerTag.includes("meeting") || lowerTag.includes("call")) return "📞";
+    return "🏷️"; // Default tag emoji
+  };
 
   // Show loading state while checking authentication
   if (isAuthenticated === null) {
@@ -313,39 +378,18 @@ export default function Dashboard() {
   }
 
   return (
-    <div className="min-h-screen bg-[#0d0d0d]">
-      {/* Header */}
-      <header className="bg-[#1a1a1a] shadow-md sticky top-0 z-40 border-b border-[#262626]">
-        <div className="container mx-auto px-6 py-3 flex justify-between items-center">
-          <Link href="/" className="flex items-center gap-2 group">
-            <span className="text-xl font-bold text-white group-hover:text-[#facc15] transition-colors duration-300">
-              T2A Dashboard
-            </span>
-          </Link>
-          <div className="flex items-center space-x-4">
-            <Link
-              href="/logout"
-              className="text-sm bg-[#262626] text-white hover:text-[#facc15] px-4 py-1.5 rounded-full transition-colors"
-            >
-              Logout
-            </Link>
-          </div>
-        </div>
-      </header>
-
+    <div className="min-h-screen bg-gradient-to-b from-[#0d0d0d] to-[#121212] text-white">
       {/* Main Content */}
-      <main className="container mx-auto px-6 py-10">
-        <div className="max-w-4xl mx-auto bg-[#262626] rounded-xl shadow-xl overflow-hidden border border-[#373737]">
-          <div className="bg-[#1a1a1a] p-6 border-b border-[#373737]">
-            <h1 className="text-2xl font-bold text-white text-center">
-              Capture Your Thoughts
+      <main className="container mx-auto px-4 py-16 max-w-5xl">
+        <div className="bg-black/40 backdrop-blur-lg rounded-2xl shadow-2xl overflow-hidden border border-white/5">
+          <div className="p-8 md:p-10">
+            <h1 className="text-3xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-[#facc15] to-[#f97316] mb-8 text-center">
+              Audio to Insights
             </h1>
-          </div>
 
-          <div className="p-8">
             {error && (
-              <div className="mb-6 p-4 bg-red-900/30 text-red-300 rounded-lg border border-red-700 shadow-sm">
-                <p className="font-bold">Error: {error}</p>
+              <div className="mb-8 p-4 bg-red-900/30 text-red-300 rounded-lg border border-red-700/50 shadow-sm">
+                <p className="font-medium">Error: {error}</p>
                 {errorDetails && (
                   <p className="mt-1 text-sm">Details: {errorDetails}</p>
                 )}
@@ -357,15 +401,11 @@ export default function Dashboard() {
               </div>
             )}
 
-            <div className="mb-6">
-              <h2 className="text-xl font-semibold text-white mb-4">
-                Choose Input Method
-              </h2>
-
+            <div className="mb-10">
               <div className="grid md:grid-cols-2 gap-6">
                 {/* File Upload Panel */}
-                <div className="bg-[#1a1a1a] p-6 rounded-lg shadow-md border border-[#373737]">
-                  <h3 className="text-md font-semibold mb-4 text-white flex items-center">
+                <div className="bg-black/50 p-6 rounded-xl border border-white/10 transition-all duration-300 hover:shadow-lg hover:shadow-[#facc15]/5 hover:border-[#facc15]/20">
+                  <h3 className="text-lg font-medium mb-4 flex items-center">
                     <svg
                       className="w-5 h-5 mr-2 text-[#facc15]"
                       fill="none"
@@ -379,15 +419,15 @@ export default function Dashboard() {
                         d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"
                       />
                     </svg>
-                    Upload Audio/Video File
+                    Upload Audio/Video
                   </h3>
 
                   <div
-                    className={`flex justify-center px-4 pt-5 pb-6 border-2 ${
+                    className={`group flex justify-center items-center px-4 py-10 border-2 ${
                       file && !audioBlob
                         ? "border-[#facc15]"
-                        : "border-[#373737]"
-                    } border-dashed rounded-lg bg-[#0d0d0d] hover:border-[#facc15] transition-colors cursor-pointer`}
+                        : "border-white/10"
+                    } border-dashed rounded-xl transition-all hover:border-[#facc15]/50 cursor-pointer bg-black/20 hover:bg-black/30`}
                     onClick={() =>
                       !isUploading &&
                       !isProcessing &&
@@ -398,7 +438,7 @@ export default function Dashboard() {
                     <div className="space-y-2 text-center">
                       {file && !audioBlob ? (
                         <>
-                          <div className="text-[#facc15] mx-auto h-12 w-12 flex items-center justify-center rounded-full bg-[#facc15]/10">
+                          <div className="text-[#facc15] mx-auto h-14 w-14 flex items-center justify-center rounded-full bg-[#facc15]/10 group-hover:scale-110 transition-transform duration-300">
                             <svg
                               className="h-8 w-8"
                               fill="none"
@@ -414,39 +454,40 @@ export default function Dashboard() {
                             </svg>
                           </div>
                           <div className="flex text-sm justify-center mt-2">
-                            <span className="relative bg-[#262626] rounded-md font-medium text-[#facc15] hover:text-[#fde047] px-3 py-1">
+                            <span className="relative bg-[#facc15] text-black font-medium rounded-md hover:bg-[#fde047] px-3 py-1.5 transition-colors duration-200 shadow-lg shadow-[#facc15]/20">
                               Change file
                             </span>
                           </div>
-                          <p className="text-[#b3b3b3] font-medium text-sm mt-1">
+                          <p className="text-white font-medium text-sm mt-2">
                             {file.name}
                           </p>
-                          <p className="text-xs text-[#b3b3b3]">
+                          <p className="text-xs text-white/70">
                             {(file.size / (1024 * 1024)).toFixed(2)} MB
                           </p>
                         </>
                       ) : (
                         <>
-                          <svg
-                            className="mx-auto h-12 w-12 text-[#b3b3b3]"
-                            stroke="currentColor"
-                            fill="none"
-                            viewBox="0 0 48 48"
-                            aria-hidden="true"
-                          >
-                            <path
-                              d="M28 8H12a4 4 0 00-4 4v20m32-12v8m0 0v8a4 4 0 01-4 4H12a4 4 0 01-4-4v-4m32-4l-3.172-3.172a4 4 0 00-5.656 0L28 28M8 32l9.172-9.172a4 4 0 015.656 0L28 28m0 0l4 4m4-24h8m-4-4v8m-12 4h.02"
-                              strokeWidth="2"
-                              strokeLinecap="round"
-                              strokeLinejoin="round"
-                            />
-                          </svg>
-                          <div className="flex text-sm justify-center">
-                            <span className="relative bg-[#262626] rounded-md font-medium text-[#facc15] hover:text-[#fde047] px-3 py-1">
+                          <div className="mx-auto h-16 w-16 text-white/50 group-hover:text-[#facc15] transition-all duration-300 group-hover:scale-110">
+                            <svg
+                              stroke="currentColor"
+                              fill="none"
+                              viewBox="0 0 48 48"
+                              aria-hidden="true"
+                            >
+                              <path
+                                d="M28 8H12a4 4 0 00-4 4v20m32-12v8m0 0v8a4 4 0 01-4 4H12a4 4 0 01-4-4v-4m32-4l-3.172-3.172a4 4 0 00-5.656 0L28 28M8 32l9.172-9.172a4 4 0 015.656 0L28 28m0 0l4 4m4-24h8m-4-4v8m-12 4h.02"
+                                strokeWidth="2"
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                              />
+                            </svg>
+                          </div>
+                          <div className="flex text-sm justify-center mt-2">
+                            <span className="relative bg-white/10 backdrop-blur-sm rounded-md font-medium text-[#facc15] hover:text-[#fde047] hover:bg-white/20 px-3 py-1.5 transition-all duration-200">
                               Upload a file
                             </span>
                           </div>
-                          <p className="text-xs text-[#b3b3b3] mt-1">
+                          <p className="text-xs text-white/50 mt-2">
                             MP3, MP4, WAV, OGG, WebM, MOV
                           </p>
                         </>
@@ -466,8 +507,8 @@ export default function Dashboard() {
                 </div>
 
                 {/* Audio Recording Panel */}
-                <div className="bg-[#1a1a1a] p-6 rounded-lg shadow-md border border-[#373737]">
-                  <h3 className="text-md font-semibold mb-4 text-white flex items-center">
+                <div className="bg-black/50 p-6 rounded-xl border border-white/10 transition-all duration-300 hover:shadow-lg hover:shadow-[#facc15]/5 hover:border-[#facc15]/20">
+                  <h3 className="text-lg font-medium mb-4 flex items-center">
                     <svg
                       className="w-5 h-5 mr-2 text-[#facc15]"
                       fill="none"
@@ -484,24 +525,24 @@ export default function Dashboard() {
                     Record Audio
                   </h3>
 
-                  <div className="flex flex-col items-center justify-center h-full">
+                  <div className="flex flex-col items-center justify-center py-6 px-4 bg-black/20 rounded-xl border border-white/5">
                     {/* Recording interface */}
                     <div className="relative w-full">
-                      <div className="flex items-center justify-center space-x-4 mb-4">
+                      <div className="flex flex-col items-center justify-center space-y-4">
                         {!isRecording ? (
                           <button
                             type="button"
                             onClick={startRecording}
                             disabled={isUploading || isProcessing}
-                            className={`flex items-center justify-center w-14 h-14 rounded-full ${
+                            className={`flex items-center justify-center w-16 h-16 rounded-full transition-all duration-300 ${
                               isUploading || isProcessing
-                                ? "bg-red-800 cursor-not-allowed opacity-50"
-                                : "bg-red-600 hover:bg-red-700 focus:ring-2 focus:ring-offset-2 focus:ring-red-500"
+                                ? "bg-red-800/50 cursor-not-allowed"
+                                : "bg-red-600 hover:bg-red-700 hover:scale-105 shadow-lg hover:shadow-red-600/30"
                             }`}
                           >
                             <span className="sr-only">Start recording</span>
                             <svg
-                              className="w-7 h-7 text-white"
+                              className="w-8 h-8 text-white"
                               fill="currentColor"
                               viewBox="0 0 20 20"
                             >
@@ -512,11 +553,11 @@ export default function Dashboard() {
                           <button
                             type="button"
                             onClick={stopRecording}
-                            className="flex items-center justify-center w-14 h-14 bg-[#262626] rounded-full hover:bg-[#373737] focus:ring-2 focus:ring-offset-2 focus:ring-red-500"
+                            className="flex items-center justify-center w-16 h-16 bg-white/10 rounded-full hover:bg-white/20 hover:scale-105 transition-all duration-300 shadow-lg"
                           >
                             <span className="sr-only">Stop recording</span>
                             <svg
-                              className="w-6 h-6 text-white"
+                              className="w-7 h-7 text-white"
                               fill="currentColor"
                               viewBox="0 0 20 20"
                             >
@@ -538,7 +579,7 @@ export default function Dashboard() {
                               Recording ready: {formatTime(recordingTime)}
                             </span>
                           ) : (
-                            <span className="text-md text-[#b3b3b3]">
+                            <span className="text-md text-white/70">
                               Click to start recording
                             </span>
                           )}
@@ -547,7 +588,7 @@ export default function Dashboard() {
 
                       {/* Audio player */}
                       {audioURL && (
-                        <div className="mt-4 flex justify-center p-3 bg-[#0d0d0d] rounded-lg border border-[#373737]">
+                        <div className="mt-5 flex justify-center p-3 bg-black/40 rounded-lg backdrop-blur-sm">
                           <audio
                             src={audioURL}
                             controls
@@ -570,19 +611,19 @@ export default function Dashboard() {
                   isProcessing ||
                   isRecording
                 }
-                className={`w-full flex justify-center py-4 px-4 border border-transparent rounded-lg shadow-sm text-md font-medium transition-all ${
+                className={`w-full flex justify-center items-center py-4 px-6 rounded-xl shadow-lg text-md font-medium transition-all duration-300 ${
                   (!file && !audioBlob) ||
                   isUploading ||
                   isProcessing ||
                   isRecording
-                    ? "bg-[#373737] text-[#b3b3b3] cursor-not-allowed"
-                    : "bg-[#facc15] hover:bg-[#fde047] text-black hover:shadow-[#facc15]/20 hover:translate-y-[-2px]"
+                    ? "bg-white/5 text-white/50 cursor-not-allowed"
+                    : "bg-gradient-to-r from-[#facc15] to-[#f97316] hover:from-[#fde047] hover:to-[#f97316] text-black hover:shadow-xl hover:shadow-[#facc15]/20 hover:translate-y-[-2px]"
                 }`}
               >
                 {isUploading || isProcessing ? (
                   <span className="flex items-center">
                     <svg
-                      className="animate-spin -ml-1 mr-2 h-5 w-5"
+                      className="animate-spin -ml-1 mr-3 h-5 w-5"
                       xmlns="http://www.w3.org/2000/svg"
                       fill="none"
                       viewBox="0 0 24 24"
@@ -603,7 +644,11 @@ export default function Dashboard() {
                     </svg>
                     {currentStep === "uploading"
                       ? "Uploading your thoughts..."
-                      : "Processing your insights..."}
+                      : currentStep === "transcribing"
+                        ? "Transcribing audio..."
+                        : currentStep === "analyzing"
+                          ? "Extracting insights..."
+                          : "Saving your brilliance..."}
                   </span>
                 ) : (
                   <span className="flex items-center">
@@ -620,79 +665,210 @@ export default function Dashboard() {
                         d="M13 10V3L4 14h7v7l9-11h-7z"
                       />
                     </svg>
-                    Turn Thoughts to Action
+                    Transform Thoughts to Insights
                   </span>
                 )}
               </button>
 
               {isProcessing && (
-                <div className="text-center pt-4 border-t border-[#373737]">
-                  <div className="inline-block animate-spin rounded-full h-6 w-6 border-t-2 border-b-2 border-[#facc15] mb-2"></div>
-                  <p className="text-sm text-[#b3b3b3]">
-                    Processing step:{" "}
-                    <span className="font-medium text-[#facc15]">
-                      {currentStep}
-                    </span>
-                    ...
-                  </p>
-                  <p className="text-xs text-[#b3b3b3] mt-1">
-                    This might take a few moments.
-                  </p>
+                <div className="relative mt-8 mb-2">
+                  <div className="flex justify-center items-center space-x-2 mb-3">
+                    <div className="inline-block animate-spin rounded-full h-6 w-6 border-t-2 border-b-2 border-[#facc15]"></div>
+                    <p className="text-sm font-medium text-white animate-pulse">
+                      {currentStep === "transcribing"
+                        ? "Converting speech to text..."
+                        : currentStep === "analyzing"
+                          ? "AI brain extracting key insights..."
+                          : currentStep === "saving"
+                            ? "Saving to your collection..."
+                            : "Processing..."}
+                    </p>
+                  </div>
+
+                  <div className="w-full bg-white/5 rounded-full h-1.5 mb-6 overflow-hidden">
+                    <div
+                      className="bg-gradient-to-r from-[#facc15] to-[#f97316] h-1.5 rounded-full transition-all duration-500"
+                      style={{
+                        width:
+                          currentStep === "uploading"
+                            ? "25%"
+                            : currentStep === "transcribing"
+                              ? "50%"
+                              : currentStep === "analyzing"
+                                ? "75%"
+                                : currentStep === "saving"
+                                  ? "90%"
+                                  : "10%",
+                      }}
+                    ></div>
+                  </div>
                 </div>
               )}
             </form>
 
             {summary.length > 0 && (
-              <div className="mt-10 border-t border-[#373737] pt-8">
-                <h2 className="text-xl font-semibold mb-4 text-white flex items-center">
-                  <svg
-                    className="w-5 h-5 mr-2 text-[#facc15]"
-                    fill="none"
-                    viewBox="0 0 24 24"
-                    stroke="currentColor"
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth="2"
-                      d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
-                    />
-                  </svg>
-                  Generated Summary
-                </h2>
-                <div className="bg-[#1a1a1a] p-6 rounded-lg shadow-inner border border-[#373737]">
-                  <ul className="list-disc pl-5 space-y-3 text-[#b3b3b3]">
+              <div className="mt-12 pt-8 border-t border-white/10">
+                <div className="flex flex-col md:flex-row md:items-center justify-between mb-6">
+                  <h2 className="text-xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-[#facc15] to-[#f97316] flex items-center">
+                    <svg
+                      className="w-5 h-5 mr-2 text-[#facc15]"
+                      fill="none"
+                      viewBox="0 0 24 24"
+                      stroke="currentColor"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth="2"
+                        d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
+                      />
+                    </svg>
+                    Key Insights
+                  </h2>
+
+                  {/* Tag UI */}
+                  <div className="mt-4 md:mt-0 flex items-center">
+                    <span className="text-white/70 text-sm mr-2">Tag:</span>
+                    {isEditingTag ? (
+                      <div className="flex items-center space-x-2">
+                        <input
+                          type="text"
+                          value={customTag}
+                          onChange={(e) => setCustomTag(e.target.value)}
+                          className="bg-black/50 border border-white/10 text-white px-3 py-1.5 rounded-md text-sm w-40 focus:border-[#facc15]/50 focus:outline-none focus:ring-1 focus:ring-[#facc15]/30"
+                          maxLength={20}
+                        />
+                        <button
+                          onClick={updateTagInDatabase}
+                          className="bg-[#facc15] hover:bg-[#fde047] text-black px-3 py-1.5 rounded-md text-sm transition-colors duration-200 font-medium"
+                          disabled={isProcessing}
+                        >
+                          Save
+                        </button>
+                        <button
+                          onClick={() => {
+                            setCustomTag(suggestedTag);
+                            setIsEditingTag(false);
+                          }}
+                          className="bg-white/10 hover:bg-white/20 text-white px-3 py-1.5 rounded-md text-sm transition-colors duration-200"
+                        >
+                          Cancel
+                        </button>
+                      </div>
+                    ) : (
+                      <div className="flex items-center space-x-3">
+                        <div className="bg-black/40 backdrop-blur-sm border border-white/10 text-white px-3 py-1.5 rounded-full text-sm flex items-center shadow-inner">
+                          <span className="mr-1 text-lg">
+                            {getTagEmoji(suggestedTag)}
+                          </span>
+                          <span className="font-medium">
+                            {suggestedTag || "Untagged"}
+                          </span>
+                        </div>
+                        <button
+                          onClick={() => setIsEditingTag(true)}
+                          className="text-[#facc15] hover:text-[#fde047] text-sm transition-colors"
+                        >
+                          <svg
+                            className="w-4 h-4"
+                            fill="none"
+                            viewBox="0 0 24 24"
+                            stroke="currentColor"
+                          >
+                            <path
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                              strokeWidth={2}
+                              d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"
+                            />
+                          </svg>
+                        </button>
+                        <button
+                          onClick={regenerateTag}
+                          className="text-[#facc15] hover:text-[#fde047] text-sm transition-colors"
+                          disabled={isProcessing}
+                        >
+                          <svg
+                            className={`w-4 h-4 ${isProcessing ? "animate-spin" : ""}`}
+                            fill="none"
+                            viewBox="0 0 24 24"
+                            stroke="currentColor"
+                          >
+                            <path
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                              strokeWidth={2}
+                              d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
+                            />
+                          </svg>
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                <div className="bg-black/40 backdrop-blur-sm p-6 rounded-xl shadow-inner border border-white/10">
+                  <ul className="space-y-4">
                     {summary.map((point, index) => (
                       <li
                         key={index}
-                        className="pb-2 border-b border-[#262626] last:border-0"
+                        className="pb-4 border-b border-white/5 last:border-0 flex items-start"
                       >
-                        {point}
+                        <span className="inline-flex items-center justify-center bg-gradient-to-r from-[#facc15] to-[#f97316] h-6 w-6 rounded-full text-black text-sm font-bold mr-3 mt-0.5 flex-shrink-0">
+                          {index + 1}
+                        </span>
+                        <span className="text-white/90">{point}</span>
                       </li>
                     ))}
                   </ul>
                 </div>
-                <div className="mt-6 text-sm flex items-center justify-center text-[#b3b3b3] bg-[#262626] p-3 rounded-lg">
-                  <svg
-                    className="w-5 h-5 mr-2 text-[#facc15]"
-                    fill="none"
-                    viewBox="0 0 24 24"
-                    stroke="currentColor"
+                <div className="mt-8 flex flex-col sm:flex-row items-center justify-between">
+                  <div className="flex items-center mb-4 sm:mb-0 px-4 py-2 bg-[#facc15]/10 rounded-full">
+                    <svg
+                      className="w-5 h-5 mr-2 text-[#facc15]"
+                      fill="none"
+                      viewBox="0 0 24 24"
+                      stroke="currentColor"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth="2"
+                        d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"
+                      />
+                    </svg>
+                    <p className="text-sm font-medium text-white">
+                      Insights saved to your collection
+                    </p>
+                  </div>
+                  <Link
+                    href="/dashboard/notes"
+                    className="bg-white/10 hover:bg-white/20 text-white px-4 py-2 rounded-lg text-sm font-medium transition-all duration-200 hover:translate-y-[-2px] flex items-center group"
                   >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth="2"
-                      d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"
-                    />
-                  </svg>
-                  <p>
-                    Summary points saved to Google Sheet: &apos;Idea Sheet&apos;
-                  </p>
+                    <span>View all insights</span>
+                    <svg
+                      className="w-4 h-4 ml-2 group-hover:translate-x-1 transition-transform duration-200"
+                      fill="none"
+                      viewBox="0 0 24 24"
+                      stroke="currentColor"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth="2"
+                        d="M14 5l7 7m0 0l-7 7m7-7H3"
+                      />
+                    </svg>
+                  </Link>
                 </div>
               </div>
             )}
           </div>
+        </div>
+
+        {/* Footer attribution */}
+        <div className="mt-10 text-center text-white/30 text-xs">
+          <p>Built for makers and indie hackers who think out loud.</p>
         </div>
       </main>
     </div>

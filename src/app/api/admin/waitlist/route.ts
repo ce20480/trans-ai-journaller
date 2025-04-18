@@ -1,16 +1,23 @@
-import { NextRequest, NextResponse } from "next/server";
-import { createAdminClient, requireAdmin } from "@/utils/supabase";
+export const runtime = "nodejs";
 
+import { NextRequest, NextResponse } from "next/server";
+import { requireAdmin } from "@/utils/supabase/auth";
+import { createAdminClient } from "@/utils/supabase/admin";
 // This endpoint should only be accessible to authenticated admins
 export async function GET(request: NextRequest) {
   // Check for authentication using Supabase
-  const authError = await requireAdmin(request);
-  if (authError) return authError;
+  const supabaseAdmin = await createAdminClient();
+  const verifyResult = await requireAdmin(supabaseAdmin);
+
+  // Check if not authorized
+  if (verifyResult) {
+    return NextResponse.json(
+      { error: "Unauthorized access: Admin privileges required" },
+      { status: 403 }
+    );
+  }
 
   try {
-    // Create a Supabase client with service role key for admin operations
-    const supabaseAdmin = createAdminClient();
-
     // Get query parameters
     const { searchParams } = new URL(request.url);
     const limit = parseInt(searchParams.get("limit") || "50");
@@ -58,8 +65,16 @@ export async function GET(request: NextRequest) {
 // Allow deleting entries
 export async function DELETE(request: NextRequest) {
   // Check for authentication using Supabase
-  const authError = await requireAdmin(request);
-  if (authError) return authError;
+  const supabaseAdmin = await createAdminClient();
+  const verifyResult = await requireAdmin(supabaseAdmin);
+
+  // Check if not authorized
+  if (verifyResult) {
+    return NextResponse.json(
+      { error: "Unauthorized access: Admin privileges required" },
+      { status: 403 }
+    );
+  }
 
   try {
     const { id } = await request.json();
@@ -70,9 +85,6 @@ export async function DELETE(request: NextRequest) {
         { status: 400 }
       );
     }
-
-    // Create a Supabase client with service role key for admin operations
-    const supabaseAdmin = createAdminClient();
 
     const { error } = await supabaseAdmin
       .from("waitlist")

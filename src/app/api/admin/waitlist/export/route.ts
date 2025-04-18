@@ -1,9 +1,9 @@
+export const runtime = "nodejs";
+
 import { NextRequest, NextResponse } from "next/server";
-import {
-  createAdminClient,
-  requireAdmin,
-  WaitlistUser,
-} from "@/utils/supabase";
+import { createAdminClient } from "@/utils/supabase/admin";
+import { requireAdmin } from "@/utils/supabase/auth";
+import { type WaitlistUser } from "@/utils/types/WaitListUser";
 
 // Helper function to convert array of objects to CSV
 function convertToCSV(data: WaitlistUser[]) {
@@ -37,13 +37,18 @@ function convertToCSV(data: WaitlistUser[]) {
 
 export async function GET(request: NextRequest) {
   // Check for authentication using Supabase
-  const authError = await requireAdmin(request);
-  if (authError) return authError;
+  const supabaseAdmin = await createAdminClient();
+  const verifyResult = await requireAdmin(supabaseAdmin);
+
+  // Check if not authorized
+  if (verifyResult) {
+    return NextResponse.json(
+      { error: "Unauthorized access: Admin privileges required" },
+      { status: 403 }
+    );
+  }
 
   try {
-    // Create a Supabase client with service role key for admin operations
-    const supabaseAdmin = createAdminClient();
-
     // Get query parameters
     const { searchParams } = new URL(request.url);
     const search = searchParams.get("search") || "";
