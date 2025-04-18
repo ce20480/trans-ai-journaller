@@ -4,7 +4,7 @@ import WaitlistSection from "@/components/WaitlistSection";
 
 export default function Home() {
   return (
-    <div className="min-h-screen flex flex-col bg-[#0d0d0d] text-white">
+    <div className="min-h-screen flex flex-col bg-[#010101] text-white">
       {/* Hero Section */}
       <section className="py-20 flex-grow">
         <div className="container mx-auto px-6">
@@ -34,16 +34,16 @@ export default function Home() {
                 </div>
               </div>
               <h1 className="text-5xl md:text-6xl font-extrabold text-white mb-6 leading-tight tracking-tight">
-                Your brain creates ideas.
+                Your brain creates ideas
                 <span className="inline-block text-[#facc15]">
                   {" "}
                   We store them.
                 </span>
               </h1>
               <p className="text-xl text-[#b3b3b3] mb-10 max-w-xl">
-                Ever had a brilliant idea... and forgot it 10 minutes later?
-                Your brain wasn&apos;t built to store ideas — it was built to
-                create them.
+                Your mind was built to create, not to store. T2A captures your
+                fleeting moments of genius and transforms them into a permanent
+                digital asset.
               </p>
               <div className="flex flex-col sm:flex-row gap-4 items-start">
                 <Link
@@ -66,7 +66,7 @@ export default function Home() {
                   Join Waitlist
                 </Link>
                 <div className="text-[#b3b3b3] text-sm mt-2">
-                  <span className="text-[#facc15]">90+</span> ideas captured by
+                  <span className="text-[#facc15]">5+</span> ideas captured by
                   our users today
                 </div>
               </div>
@@ -78,7 +78,7 @@ export default function Home() {
                 width={600}
                 height={400}
                 style={{ height: "auto" }}
-                className="rounded-lg shadow-2xl shadow-[#facc15]/10"
+                className="rounded-4xl shadow-2xl shadow-[#facc15]/10"
               />
             </div>
           </div>
@@ -86,7 +86,7 @@ export default function Home() {
       </section>
 
       {/* How it Works Section */}
-      <section id="how-it-works" className="py-20 bg-[#0d0d0d]">
+      <section id="how-it-works" className="py-20 bg-[#010101]">
         <div className="container mx-auto px-6">
           <h2 className="text-3xl font-bold text-white mb-16">How It Works</h2>
           <div className="grid md:grid-cols-3 gap-10">
@@ -96,11 +96,11 @@ export default function Home() {
                 1
               </div>
               <h3 className="text-xl font-semibold mb-3 text-white">
-                Record Your Thought
+                Speak Your Brilliance
               </h3>
               <p className="text-[#b3b3b3]">
-                Capture voice or video quickly through the app whenever
-                inspiration strikes.
+                Capture your thoughts through voice or video whenever
+                inspiration strikes – no matter where you are.
               </p>
             </div>
 
@@ -110,11 +110,11 @@ export default function Home() {
                 2
               </div>
               <h3 className="text-xl font-semibold mb-3 text-white">
-                AI-Powered Summary
+                AI-Powered Clarity
               </h3>
               <p className="text-[#b3b3b3]">
-                Our AI transcribes and summarizes your recordings into clear,
-                actionable points.
+                Our AI transforms your raw thoughts into concise, actionable
+                insights that capture the essence of your ideas.
               </p>
             </div>
 
@@ -124,11 +124,11 @@ export default function Home() {
                 3
               </div>
               <h3 className="text-xl font-semibold mb-3 text-white">
-                Save to Google Sheets
+                Your Digital Second Brain
               </h3>
               <p className="text-[#b3b3b3]">
-                All your ideas are automatically saved to your personal Google
-                Sheet for easy access.
+                All your ideas are securely stored in your personal knowledge
+                vault, organized and ready when inspiration strikes again.
               </p>
             </div>
           </div>
@@ -136,20 +136,21 @@ export default function Home() {
       </section>
 
       {/* Emotional Resonance Visual Section */}
-      <section className="py-20 bg-[#1a1a1a]">
+      <section className="py-20 bg-[#010101]">
         <div className="container mx-auto px-6">
           <div className="grid md:grid-cols-2 gap-10 items-center">
             <div>
               <h2 className="text-3xl font-bold text-white mb-6">
-                Your system is where ideas die
+                The average person loses 70% of their ideas
               </h2>
               <p className="text-[#b3b3b3] mb-4">
-                Most ideas are lost because we don&apos;t have a reliable system
-                to capture them when inspiration strikes.
+                Brilliant thoughts vanish because your mind can&apos;t store
+                everything it creates. This is the &quot;creator&apos;s
+                paradox&quot; – more innovation means more forgotten ideas.
               </p>
               <p className="text-[#b3b3b3] mb-6">
-                T2A ensures your ideas are captured permanently, so you can
-                focus on making them happen.
+                T2A extends your mind, ensuring every spark of genius is
+                captured, refined, and preserved forever.
               </p>
               <Image
                 src="/ChatGPT Image Apr 15 2025 from Media Encoder (1).png"
@@ -163,7 +164,7 @@ export default function Home() {
             <div>
               <Image
                 src="/ChatGPT Image Apr 15 2025 from Media Encoder (2).png"
-                alt="Person with organized Google Sheet"
+                alt="Person with digital second brain"
                 width={500}
                 height={350}
                 style={{ height: "auto" }}
@@ -171,15 +172,16 @@ export default function Home() {
               />
               <div className="mt-10">
                 <h2 className="text-3xl font-bold text-white mb-6">
-                  You think Einstein kept his thoughts in his head?
+                  All great thinkers needed a second brain
                 </h2>
                 <p className="text-[#b3b3b3] mb-4">
-                  No of course not, he wrote them down but we have something
-                  better! A digital brain!
+                  Da Vinci had his notebooks. Einstein had his journals. But you
+                  have something more powerful – an AI-enhanced digital
+                  extension of your mind.
                 </p>
                 <p className="text-[#b3b3b3] mb-6">
-                  T2A is your digital brain, capturing every thought and idea
-                  you have. Eistein would have loved it!
+                  T2A is your always-available second brain, turning every
+                  fleeting thought into lasting intellectual capital.
                 </p>
               </div>
             </div>
@@ -193,14 +195,17 @@ export default function Home() {
       </div>
 
       {/* Final CTA Section */}
-      <section className="py-16 bg-[#262626]">
+      <section className="py-16 bg-[#010101]">
         <div className="container mx-auto px-6">
           <div className="grid md:grid-cols-2 gap-10 items-center">
             <div className="flex flex-col space-y-6">
-              <h2 className="text-3xl font-bold text-white">Just T2A it.</h2>
+              <h2 className="text-3xl font-bold text-white">
+                Outsource memory. Focus on creation.
+              </h2>
               <p className="text-[#b3b3b3] max-w-md">
-                Record, transcribe, and store your brilliant ideas with a single
-                click. Never lose track of what matters most.
+                Your mind can now focus on what it does best – creating
+                brilliant ideas. Let your second brain handle the remembering
+                part.
               </p>
               <div className="pt-4">
                 <Link
@@ -226,25 +231,6 @@ export default function Home() {
             </div>
             <div className="flex justify-center">
               <div className="relative">
-                <div className="absolute -top-20 -left-10">
-                  <svg
-                    width="80"
-                    height="80"
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    xmlns="http://www.w3.org/2000/svg"
-                    className="text-[#facc15]"
-                  >
-                    <path
-                      d="M13 6V3L4 14h7v7l9-11h-7z"
-                      fill="currentColor"
-                      stroke="currentColor"
-                      strokeWidth="1"
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                    />
-                  </svg>
-                </div>
                 <Image
                   src="/ChatGPT Image Apr 15 2025 from Media Encoder.png"
                   alt="T2A capture your ideas"
@@ -260,7 +246,7 @@ export default function Home() {
       </section>
 
       {/* Footer */}
-      <footer className="bg-[#0d0d0d] text-[#b3b3b3] py-8 border-t border-[#262626]">
+      <footer className="bg-[#010101] text-[#b3b3b3] py-8 border-t border-[#262626]">
         <div className="container mx-auto px-6">
           <div className="flex flex-col items-center">
             {/* Build in Public Badge */}

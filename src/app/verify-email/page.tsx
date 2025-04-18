@@ -60,7 +60,7 @@ export default function VerifyEmailPage() {
   };
 
   return (
-    <div className="min-h-screen bg-[#0d0d0d] flex items-center justify-center p-4">
+    <div className="min-h-screen bg-[#010101] flex items-center justify-center p-4">
       <div className="bg-[#1a1a1a] p-6 rounded-lg max-w-md w-full space-y-4 text-white text-center">
         <h1 className="text-2xl font-bold">Almost there!</h1>
         <p>

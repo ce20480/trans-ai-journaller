@@ -9,7 +9,7 @@ export const metadata = {
 
 export default function RegisterPage() {
   return (
-    <div className="min-h-screen bg-[#0d0d0d] flex items-center justify-center p-4">
+    <div className="min-h-screen flex flex-col justify-center items-center bg-[#010101] p-4">
       <div className="bg-[#1a1a1a] w-full max-w-md p-8 rounded-xl shadow-xl">
         <h1 className="text-2xl font-bold text-white mb-6 text-center">
           Create an Account
