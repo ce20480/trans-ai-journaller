@@ -13,6 +13,7 @@ const PRICE_ID = process.env.STRIPE_PRICE_ID!;
 if (!PRICE_ID) {
   throw new Error("Missing STRIPE_PRICE_ID environment variable");
 }
+const SITE_URL = process.env.NEXT_PUBLIC_BASE_URL!;
 
 export async function POST() {
   // 0️⃣ spin up a server‑side Supabase client (reads cookies automatically)
@@ -39,8 +40,8 @@ export async function POST() {
       line_items: [{ price: PRICE_ID, quantity: 1 }],
       client_reference_id: user.id,
       customer_email: user.email,
-      success_url: `${process.env.NEXT_PUBLIC_BASE_URL}/payment/success?session_id={CHECKOUT_SESSION_ID}`,
-      cancel_url: `${process.env.NEXT_PUBLIC_BASE_URL}/payment`,
+      success_url: `${SITE_URL}/payment/success?session_id={CHECKOUT_SESSION_ID}`,
+      cancel_url: `${SITE_URL}/payment`,
       metadata: { userId: user.id },
     });
 

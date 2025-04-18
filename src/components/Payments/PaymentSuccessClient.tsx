@@ -22,6 +22,7 @@ export default function PaymentSuccessClient() {
     fetch("/api/verify-payment", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
+      credentials: "include",
       body: JSON.stringify({ sessionId }),
     })
       .then(async (res) => {
