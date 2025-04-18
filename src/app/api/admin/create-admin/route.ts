@@ -6,8 +6,15 @@ import { requireAdmin } from "@/utils/supabase/auth";
 export async function POST(request: NextRequest) {
   // First verify the requester is already an admin
   const supabaseAdmin = await createAdminClient();
-  const authError = await requireAdmin(supabaseAdmin);
-  if (authError) return authError;
+  const verifyResult = await requireAdmin(supabaseAdmin);
+
+  // Check if not authorized
+  if (verifyResult) {
+    return NextResponse.json(
+      { error: "Unauthorized access: Admin privileges required" },
+      { status: 403 }
+    );
+  }
 
   try {
     const { email, password, name } = await request.json();

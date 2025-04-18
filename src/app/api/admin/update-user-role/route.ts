@@ -1,3 +1,5 @@
+export const runtime = "nodejs";
+
 import { NextRequest, NextResponse } from "next/server";
 import { createAdminClient } from "@/utils/supabase/admin";
 import { requireAdmin } from "@/utils/supabase/auth";
@@ -6,9 +8,14 @@ export async function POST(request: NextRequest) {
   try {
     // First, verify that the requester is an admin
     const supabaseAdmin = await createAdminClient();
-    const authError = await requireAdmin(supabaseAdmin);
-    if (authError) {
-      return authError; // This already returns a properly formatted NextResponse
+    const verifyResult = await requireAdmin(supabaseAdmin);
+
+    // Check if not authorized
+    if (verifyResult) {
+      return NextResponse.json(
+        { error: "Unauthorized access: Admin privileges required" },
+        { status: 403 }
+      );
     }
 
     // Parse the request body

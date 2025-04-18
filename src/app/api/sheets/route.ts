@@ -1,3 +1,5 @@
+export const runtime = "nodejs";
+
 import { NextRequest, NextResponse } from "next/server";
 import { verifyAuth } from "@/utils/supabase/auth";
 import { writeToGoogleSheets } from "@/utils/googleSheets";
