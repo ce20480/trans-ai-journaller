@@ -1,84 +1,60 @@
-import { NextRequest, NextResponse } from "next/server";
-import { verifyAuth } from "@/utils/supabase";
-import Stripe from "stripe";
+export const runtime = "nodejs";
 
-// Initialize Stripe
+import { NextResponse } from "next/server";
+import Stripe from "stripe";
+import { createClient as createServerClient } from "@/utils/supabase/server";
+import { verifyAuth } from "@/utils/supabase/auth";
+
 const stripe = new Stripe(process.env.STRIPE_API_KEY!, {
-  apiVersion: "2025-03-31.basil", // Use the latest API version
+  apiVersion: "2025-03-31.basil",
 });
 
-export async function POST(request: NextRequest) {
-  // Verify user is authenticated
-  const auth = await verifyAuth(request);
-  if (!auth.isAuthenticated) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+const PRICE_ID = process.env.STRIPE_PRICE_ID!;
+if (!PRICE_ID) {
+  throw new Error("Missing STRIPE_PRICE_ID environment variable");
+}
+
+export async function POST() {
+  // 0️⃣ spin up a server‑side Supabase client (reads cookies automatically)
+  const supabase = await createServerClient();
+
+  // 1️⃣ verify the session
+  const {
+    isAuthenticated,
+    user,
+    error: authError,
+  } = await verifyAuth(supabase);
+  if (!isAuthenticated || !user) {
+    return NextResponse.json(
+      { error: authError || "Unauthorized" },
+      { status: 401 }
+    );
   }
 
   try {
-    const { userId, userEmail } = await request.json();
-
-    // Validate inputs
-    if (!userId || !userEmail) {
-      return NextResponse.json(
-        { error: "User ID and email are required" },
-        { status: 400 }
-      );
-    }
-
-    // Create a checkout session
+    // 2️⃣ create the Stripe checkout session
     const session = await stripe.checkout.sessions.create({
-      payment_method_types: ["card"],
-      line_items: [
-        {
-          price_data: {
-            currency: "usd",
-            product_data: {
-              name: "T2A Premium Subscription",
-              description: "Monthly subscription to T2A features",
-            },
-            unit_amount: 495, // $4.95 in cents
-            recurring: {
-              interval: "month",
-            },
-          },
-          quantity: 1,
-        },
-      ],
       mode: "subscription",
+      payment_method_types: ["card"],
+      line_items: [{ price: PRICE_ID, quantity: 1 }],
+      client_reference_id: user.id,
+      customer_email: user.email,
       success_url: `${process.env.NEXT_PUBLIC_BASE_URL}/payment/success?session_id={CHECKOUT_SESSION_ID}`,
       cancel_url: `${process.env.NEXT_PUBLIC_BASE_URL}/payment`,
-      customer_email: userEmail,
-      client_reference_id: userId,
-      metadata: {
-        userId: userId,
-      },
+      metadata: { userId: user.id },
     });
 
-    // Return the checkout URL
+    // 3️⃣ return the URL
     return NextResponse.json({ url: session.url });
-  } catch (error) {
-    // Enhanced error logging
-    if (error instanceof Error) {
-      console.error("Stripe checkout error:", {
-        message: error.message,
-        stack: error.stack,
-        name: error.name,
-      });
-
-      // Return more specific error message to the client
-      return NextResponse.json(
-        {
-          error: "Failed to create checkout session",
-          details: error.message,
-        },
-        { status: 500 }
-      );
-    } else {
-      console.error("Unknown Stripe checkout error:", error);
-      return NextResponse.json(
-        { error: "Failed to create checkout session" },
-        { status: 500 }
-      );
-    }
+  } catch (err) {
+    console.error("Stripe checkout error:", err);
+    const message = err instanceof Error ? err.message : "Unknown error";
+    return NextResponse.json(
+      {
+        error: "Failed to create checkout session",
+        details: message,
+      },
+      { status: 500 }
+    );
   }
 }

@@ -2,7 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { writeFile } from "fs/promises";
 import { join } from "path";
 import { mkdir } from "fs/promises";
-import { verifyAuth } from "@/utils/auth";
+import { verifyAuth } from "@/utils/supabase/auth";
+import { createClient as createServerClient } from "@/utils/supabase/server";
 
 // Configuration
 const MAX_FILE_SIZE = 100 * 1024 * 1024; // 100MB
@@ -13,6 +14,7 @@ const ALLOWED_AUDIO_TYPES = [
   "audio/ogg",
   "audio/webm",
 ];
+
 const ALLOWED_VIDEO_TYPES = [
   "video/mp4",
   "video/webm",
@@ -31,9 +33,10 @@ const createUploadsDir = async () => {
 
 export async function POST(request: NextRequest) {
   // Check authentication
-  const authResult = await verifyAuth(request);
-  if (!authResult.isAuthenticated) {
-    console.log("Upload attempted without authentication");
+  const supabase = await createServerClient();
+  const authResult = await verifyAuth(supabase);
+  if (!authResult.isAuthenticated || !authResult.user) {
+    console.log("Upload attempted without authentication or user");
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 

@@ -1,76 +1,93 @@
+// app/verify-email/page.tsx
 "use client";
+import { useState, useRef, useEffect } from "react";
+import { useSearchParams, useRouter } from "next/navigation";
 
-import { Suspense } from "react";
-import { useSearchParams } from "next/navigation";
-import Link from "next/link";
+export default function VerifyEmailPage() {
+  const params = useSearchParams();
+  const router = useRouter();
+  const email = params.get("email") ?? "";
+  const [error, setError] = useState<string | null>(null);
+  const [resendDisabled, setResendDisabled] = useState(false);
+  const [timer, setTimer] = useState(60);
+  const interval = useRef<NodeJS.Timeout | null>(null);
 
-function VerifyEmailContent() {
-  const searchParams = useSearchParams();
-  const email = searchParams.get("email") || "your email";
+  // Countdown for "Resend"
+  const startCount = () => {
+    setResendDisabled(true);
+    setTimer(60);
+    interval.current = setInterval(() => {
+      setTimer((t) => {
+        if (t <= 1) {
+          clearInterval(interval.current!);
+          setResendDisabled(false);
+          return 60;
+        }
+        return t - 1;
+      });
+    }, 1000);
+  };
+
+  useEffect(() => {
+    return () => {
+      if (interval.current) {
+        clearInterval(interval.current);
+      }
+    };
+  }, []);
+
+  const handleResend = async () => {
+    setError(null);
+    startCount();
+    try {
+      const res = await fetch("/api/auth/resend-confirmation", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email }),
+      });
+      if (!res.ok) {
+        const { error } = await res.json();
+        throw new Error(error);
+      }
+    } catch (err) {
+      setError((err as Error).message);
+    }
+  };
+
+  const handleContinue = () => {
+    // reload so that your Supabase cookie is picked up
+    router.refresh();
+  };
 
   return (
-    <div className="min-h-screen flex flex-col justify-center items-center bg-[#0d0d0d] p-4">
-      <div className="w-full max-w-md p-8 bg-[#1a1a1a] rounded-xl shadow-2xl text-center">
-        <div className="mb-6">
-          <svg
-            className="h-16 w-16 text-[#facc15] mx-auto"
-            fill="none"
-            viewBox="0 0 24 24"
-            stroke="currentColor"
+    <div className="min-h-screen bg-[#0d0d0d] flex items-center justify-center p-4">
+      <div className="bg-[#1a1a1a] p-6 rounded-lg max-w-md w-full space-y-4 text-white text-center">
+        <h1 className="text-2xl font-bold">Almost there!</h1>
+        <p>
+          We&apos;ve sent a confirmation link to{" "}
+          <span className="font-mono text-[#facc15]">{email}</span>.
+        </p>
+        {error && <p className="text-red-400">{error}</p>}
+        <div className="flex gap-2">
+          <button
+            onClick={handleContinue}
+            className="flex-1 py-2 rounded bg-[#facc15] hover:bg-[#fde047] text-black"
           >
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              strokeWidth="2"
-              d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"
-            />
-          </svg>
-        </div>
-        <h1 className="text-2xl font-bold text-white mb-4">
-          Verify Your Email
-        </h1>
-        <p className="text-[#b3b3b3] mb-6">
-          We&apos;ve sent a verification link to{" "}
-          <span className="text-white font-medium">{email}</span>. Please check
-          your inbox and click the link to activate your account.
-        </p>
-        <p className="text-[#b3b3b3] mb-8">
-          After verification, you can log in to complete your registration and
-          access your account.
-        </p>
-        <Link
-          href="/login"
-          className="inline-block bg-[#facc15] hover:bg-[#fde047] text-black px-6 py-3 rounded-lg text-sm font-medium transition-colors w-full text-center"
-        >
-          Back to Login
-        </Link>
-        <div className="mt-6 text-sm text-[#b3b3b3]">
-          Didn&apos;t receive an email? Check your spam folder or{" "}
-          <Link href="/register" className="text-[#facc15] hover:underline">
-            try again
-          </Link>
-          .
+            Continue
+          </button>
+          <button
+            onClick={handleResend}
+            disabled={resendDisabled}
+            className={`flex-1 py-2 rounded ${
+              resendDisabled
+                ? "bg-[#373737] cursor-not-allowed text-[#666]"
+                : "bg-[#262626] hover:bg-[#373737] text-white"
+            }`}
+          >
+            {resendDisabled ? `Resend in ${timer}s` : "Resend email"}
+          </button>
         </div>
       </div>
     </div>
-  );
-}
-
-export default function VerifyEmail() {
-  return (
-    <Suspense
-      fallback={
-        <div className="min-h-screen flex flex-col justify-center items-center bg-[#0d0d0d] p-4">
-          <div className="w-full max-w-md p-8 bg-[#1a1a1a] rounded-xl shadow-2xl text-center">
-            <div className="flex justify-center mb-6">
-              <div className="animate-spin rounded-full h-12 w-12 border-t-4 border-b-4 border-[#facc15]"></div>
-            </div>
-            <h1 className="text-2xl font-bold text-white mb-4">Loading...</h1>
-          </div>
-        </div>
-      }
-    >
-      <VerifyEmailContent />
-    </Suspense>
   );
 }

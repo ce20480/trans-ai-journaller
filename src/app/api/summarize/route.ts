@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
-import { verifyAuth } from "@/utils/auth";
-import { processWithLLM } from "@/utils/llm";
+import { createClient as createServerClient } from "@/utils/supabase/server";
+import { verifyAuth } from "@/utils/supabase/auth";
+import { processWithLLM, generateTagForIdea } from "@/utils/llm";
 
 // Helper function to parse the LLM output into an array of summary points
 function parseSummaryText(text: string): string[] {
@@ -33,8 +34,9 @@ function parseSummaryText(text: string): string[] {
 
 export async function POST(request: NextRequest) {
   // Check authentication
-  const authResult = await verifyAuth(request);
-  if (!authResult.isAuthenticated) {
+  const supabase = await createServerClient();
+  const authResult = await verifyAuth(supabase);
+  if (!authResult.isAuthenticated || !authResult.user) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
@@ -54,13 +56,18 @@ export async function POST(request: NextRequest) {
     // Parse the summary text into an array of points
     const summaryPoints = parseSummaryText(summaryText);
 
-    console.log("Processed summary points:", {
+    // Generate a tag based on the summary
+    const fullSummary = summaryPoints.join(" ");
+    const suggestedTag = await generateTagForIdea(fullSummary);
+
+    console.log("Processed summary points and tag:", {
       count: summaryPoints.length,
       first:
         summaryPoints[0]?.substring(0, 100) +
         (summaryPoints[0]?.length > 100 ? "..." : ""),
       raw:
         summaryText.substring(0, 100) + (summaryText.length > 100 ? "..." : ""),
+      suggestedTag,
     });
 
     if (summaryPoints.length === 0) {
@@ -70,6 +77,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({
       success: true,
       summary: summaryPoints,
+      suggestedTag: suggestedTag,
     });
   } catch (error) {
     console.error("Error processing with LLM:", error);

@@ -1,11 +1,13 @@
 import { NextRequest, NextResponse } from "next/server";
-import { verifyAuth } from "@/utils/auth";
+import { verifyAuth } from "@/utils/supabase/auth";
+import { createClient as createServerClient } from "@/utils/supabase/server";
 import { transcribeFile } from "@/utils/transcription";
 
 export async function POST(request: NextRequest) {
   // Check authentication
-  const authResult = await verifyAuth(request);
-  if (!authResult.isAuthenticated) {
+  const supabase = await createServerClient();
+  const authResult = await verifyAuth(supabase);
+  if (!authResult.isAuthenticated || !authResult.user) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 

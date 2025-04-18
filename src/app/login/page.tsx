@@ -3,34 +3,18 @@
 import { useState } from "react";
 import Link from "next/link";
 import { login } from "@/actions/login/actions";
+import { useActionState } from "react";
 
 export default function Login() {
+  const [formState, formAction, isPending] = useActionState(
+    async (_prevState: { error: string }, formData: FormData) => {
+      const result = await login(formData);
+      return { error: result.error ?? "" };
+    },
+    { error: "" }
+  );
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [error, setError] = useState<string | null>(null);
-  const [isLoading, setIsLoading] = useState(false);
-
-  const handleSubmit = async (formData: FormData) => {
-    setIsLoading(true);
-    setError(null);
-
-    try {
-      // Use the server action to handle login
-      const result = await login(formData);
-
-      // If there's an error returned from the server action
-      if (result?.error) {
-        setError(result.error);
-      }
-    } catch (err) {
-      console.error("Login error:", err);
-      setError(
-        err instanceof Error ? err.message : "An unexpected error occurred"
-      );
-    } finally {
-      setIsLoading(false);
-    }
-  };
 
   return (
     <div className="min-h-screen flex flex-col justify-center items-center bg-[#0d0d0d] p-4">
@@ -43,13 +27,25 @@ export default function Login() {
           <p className="text-[#b3b3b3] mt-2">Access your T2A account.</p>
         </div>
 
-        {error && (
+        {formState?.error && (
           <div className="mb-4 p-3 text-sm bg-red-900/30 text-red-300 rounded-md border border-red-700">
-            {error}
+            {formState.error}
+            {formState.error.includes("failed") && (
+              <p className="mt-2 text-sm">
+                Having trouble? Try{" "}
+                <Link
+                  href="/auth/clear-cookies"
+                  className="text-[#facc15] underline"
+                >
+                  clearing your cookies
+                </Link>
+                .
+              </p>
+            )}
           </div>
         )}
 
-        <form action={handleSubmit} className="space-y-6">
+        <form action={formAction} className="space-y-6">
           <div>
             <label
               htmlFor="email"
@@ -88,14 +84,14 @@ export default function Login() {
 
           <button
             type="submit"
-            disabled={isLoading}
+            disabled={isPending}
             className={`w-full py-3 px-4 rounded-lg text-black font-semibold ${
-              isLoading
+              isPending
                 ? "bg-[#facc15]/70 cursor-not-allowed"
                 : "bg-[#facc15] hover:bg-[#fde047]"
             } transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-[#facc15]/50 focus:ring-offset-2 focus:ring-offset-[#262626] shadow-md`}
           >
-            {isLoading ? (
+            {isPending ? (
               <span className="flex items-center justify-center">
                 <svg
                   className="animate-spin -ml-1 mr-3 h-5 w-5 text-black"

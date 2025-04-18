@@ -1,39 +1,30 @@
 "use client";
-
-import { useEffect, useState } from "react";
 import Link from "next/link";
-import { createClient } from "@/utils/supabase/client";
 import LogoutButton from "./LogoutButton";
-
-export default function Navigation() {
+import { User } from "@supabase/supabase-js";
+import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
+export default function Navigation({ user }: { user: User | null }) {
   const [isLoggedIn, setIsLoggedIn] = useState(false);
-  const [isLoading, setIsLoading] = useState(true);
+  const router = useRouter();
 
   useEffect(() => {
-    const checkAuthStatus = async () => {
-      setIsLoading(true);
-      try {
-        const supabase = createClient();
-        const {
-          data: { session },
-        } = await supabase.auth.getSession();
-        setIsLoggedIn(!!session);
-      } catch (error) {
-        console.error("Error checking auth status:", error);
-      } finally {
-        setIsLoading(false);
-      }
-    };
+    setIsLoggedIn(!!user);
+  }, [user]);
 
-    checkAuthStatus();
-  }, []);
+  // If user is not logged in, redirect to login page
+  useEffect(() => {
+    if (!isLoggedIn) {
+      router.push("/login");
+    }
+  }, [isLoggedIn, router]);
 
   return (
     <nav className="bg-[#1a1a1a]/80 backdrop-blur-md py-4 sticky top-0 z-50 border-b border-[#262626]">
       <div className="container mx-auto px-6 flex justify-between items-center">
         <Link href="/" className="flex items-center gap-2 group">
           <span className="text-2xl font-bold text-white group-hover:text-[#facc15] transition-colors duration-300">
-            T2A
+            Just T2A It
           </span>
         </Link>
         <div className="flex items-center space-x-6">
@@ -44,10 +35,7 @@ export default function Navigation() {
             How It Works
           </Link>
 
-          {isLoading ? (
-            // Show loading state
-            <div className="w-20 h-8 bg-[#262626] animate-pulse rounded-full"></div>
-          ) : isLoggedIn ? (
+          {isLoggedIn ? (
             // Show links for logged-in users
             <>
               <Link
@@ -55,6 +43,12 @@ export default function Navigation() {
                 className="text-[#b3b3b3] hover:text-[#facc15] transition-colors"
               >
                 Dashboard
+              </Link>
+              <Link
+                href="/dashboard/notes"
+                className="text-[#b3b3b3] hover:text-[#facc15] transition-colors"
+              >
+                My Notes
               </Link>
               <LogoutButton />
             </>

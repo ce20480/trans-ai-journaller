@@ -2,7 +2,8 @@
 
 import { useState, useEffect, useCallback } from "react";
 import Link from "next/link";
-import { WaitlistUser } from "@/utils/supabase";
+import { type WaitlistUser } from "@/utils/types/WaitListUser";
+import { createClient } from "@/utils/supabase/client";
 
 interface PaginationInfo {
   total: number;
@@ -21,6 +22,29 @@ export default function WaitlistAdmin() {
     offset: 0,
   });
   const [isExporting, setIsExporting] = useState(false);
+  const [isViewOnly, setIsViewOnly] = useState(false);
+
+  // Check user role and view-only status
+  useEffect(() => {
+    const checkUserRole = async () => {
+      try {
+        const supabase = createClient();
+        const {
+          data: { session },
+        } = await supabase.auth.getSession();
+
+        if (session) {
+          const role = session.user.user_metadata?.role || "user";
+          // Only admins have access to modify waitlist
+          setIsViewOnly(role !== "admin");
+        }
+      } catch (err) {
+        console.error("Error checking user role:", err);
+      }
+    };
+
+    checkUserRole();
+  }, []);
 
   // Function to fetch waitlist data
   const fetchWaitlistData = useCallback(
@@ -62,6 +86,12 @@ export default function WaitlistAdmin() {
 
   // Function to delete an entry
   const deleteEntry = async (id: string) => {
+    // Disable actions for view-only mode
+    if (isViewOnly) {
+      setError("You have view-only access. You cannot modify the waitlist.");
+      return;
+    }
+
     if (!confirm("Are you sure you want to delete this entry?")) {
       return;
     }
@@ -90,6 +120,12 @@ export default function WaitlistAdmin() {
 
   // Function to export waitlist data
   const exportWaitlist = async () => {
+    // Disable actions for view-only mode
+    if (isViewOnly) {
+      setError("You have view-only access. You cannot export the waitlist.");
+      return;
+    }
+
     setIsExporting(true);
 
     try {
@@ -135,7 +171,14 @@ export default function WaitlistAdmin() {
   return (
     <div className="p-6 max-w-6xl mx-auto">
       <div className="flex justify-between items-center mb-6">
-        <h1 className="text-2xl font-bold">Waitlist Management</h1>
+        <div>
+          <h1 className="text-2xl font-bold">Waitlist Management</h1>
+          {isViewOnly && (
+            <div className="mt-1 text-sm text-yellow-500 bg-yellow-500/10 px-2 py-1 rounded inline-block">
+              View-only mode
+            </div>
+          )}
+        </div>
         <Link
           href="/dashboard"
           className="text-[#b3b3b3] hover:text-[#facc15] transition-colors"
@@ -165,18 +208,20 @@ export default function WaitlistAdmin() {
             </div>
           </form>
 
-          {/* Export button */}
-          <button
-            onClick={exportWaitlist}
-            disabled={isExporting || waitlistEntries.length === 0}
-            className={`px-4 py-2 bg-[#facc15] hover:bg-[#fde047] text-black rounded-lg transition-colors ${
-              isExporting || waitlistEntries.length === 0
-                ? "opacity-50 cursor-not-allowed"
-                : ""
-            }`}
-          >
-            {isExporting ? "Exporting..." : "Export to CSV"}
-          </button>
+          {/* Export button - hidden for view-only users */}
+          {!isViewOnly && (
+            <button
+              onClick={exportWaitlist}
+              disabled={isExporting || waitlistEntries.length === 0}
+              className={`px-4 py-2 bg-[#facc15] hover:bg-[#fde047] text-black rounded-lg transition-colors ${
+                isExporting || waitlistEntries.length === 0
+                  ? "opacity-50 cursor-not-allowed"
+                  : ""
+              }`}
+            >
+              {isExporting ? "Exporting..." : "Export to CSV"}
+            </button>
+          )}
         </div>
 
         {/* Stats */}
@@ -217,9 +262,11 @@ export default function WaitlistAdmin() {
                   <th className="px-4 py-3 text-left text-sm font-medium text-[#b3b3b3]">
                     Source
                   </th>
-                  <th className="px-4 py-3 text-left text-sm font-medium text-[#b3b3b3]">
-                    Actions
-                  </th>
+                  {!isViewOnly && (
+                    <th className="px-4 py-3 text-left text-sm font-medium text-[#b3b3b3]">
+                      Actions
+                    </th>
+                  )}
                 </tr>
               </thead>
               <tbody className="divide-y divide-[#373737]">
@@ -237,14 +284,16 @@ export default function WaitlistAdmin() {
                     <td className="px-4 py-3 text-sm text-[#b3b3b3]">
                       {entry.source || "landing_page"}
                     </td>
-                    <td className="px-4 py-3 text-sm">
-                      <button
-                        onClick={() => deleteEntry(entry.id as string)}
-                        className="text-red-500 hover:text-red-400 transition-colors"
-                      >
-                        Delete
-                      </button>
-                    </td>
+                    {!isViewOnly && (
+                      <td className="px-4 py-3 text-sm">
+                        <button
+                          onClick={() => deleteEntry(entry.id as string)}
+                          className="text-red-500 hover:text-red-400 transition-colors"
+                        >
+                          Delete
+                        </button>
+                      </td>
+                    )}
                   </tr>
                 ))}
               </tbody>

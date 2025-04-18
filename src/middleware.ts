@@ -1,102 +1,79 @@
-import { NextResponse } from "next/server";
-import type { NextRequest } from "next/server";
+// middleware.ts
+import { NextResponse, type NextRequest } from "next/server";
 import { updateSession } from "@/utils/supabase/middleware";
+import { verifyAuth } from "@/utils/supabase/auth";
+import { createClient as createServerClient } from "@/utils/supabase/server";
 
-// --- Rate Limiting Configuration ---
-const RATE_LIMIT_WINDOW_MS = 60 * 1000; // 1 minute
-const RATE_LIMIT_MAX_REQUESTS = 30; // Max requests per window per IP
+const PUBLIC_PAGES = [
+  "/",
+  "/register",
+  "/verify-email",
+  "/login",
+  "/payment",
+  "/cookies",
+];
+const ADMIN_ROUTES = ["/admin"];
+const PAID_ROUTES = ["/dashboard", "/dashboard/notes", "/dashboard/waitlist"];
+const AUTH_CONFIRM_ROUTES = "/auth/confirm";
 
-// In-memory store for rate limiting (WARNING: Not suitable for scaled deployments)
-const requestCounts = new Map<string, { count: number; timestamp: number }>();
+export async function middleware(req: NextRequest) {
+  const path = req.nextUrl.pathname;
 
-// Protected routes
-const PROTECTED_ROUTES = ["/dashboard", "/payment", "/success"];
-
-// Public routes
-// const PUBLIC_ROUTES = ["/", "/login", "/register", "/verify-email"];
-
-export async function middleware(request: NextRequest) {
-  // Apply rate limiting first
-  const rateLimitResponse = applyRateLimit(request);
-  if (rateLimitResponse) return rateLimitResponse;
-
-  // Otherwise, continue with custom path protection logic
-  // but use the response from Supabase to maintain correct cookies
-  const pathname = request.nextUrl.pathname;
-
-  // Then handle Supabase session refresh
-  // This will set the necessary cookies and ensure the auth session is valid
-  if (PROTECTED_ROUTES.some((path) => pathname.startsWith(path))) {
-    const supabaseResponse = await updateSession(request);
-
-    // If we need to redirect to login based on Supabase auth, return early
-    if (supabaseResponse.status !== 200) {
-      return supabaseResponse;
-    }
-
-    // Modify the response to include our custom redirects if needed
-    // We need to clone it so we don't modify the original
-    const response = NextResponse.next({
-      request: {
-        headers: request.headers,
-      },
-    });
-
-    // Copy all cookies from supabaseResponse to our response
-    supabaseResponse.cookies.getAll().forEach((cookie) => {
-      response.cookies.set(cookie.name, cookie.value);
-    });
-
-    // Log the path being accessed
-    console.log(`Middleware checking path: ${pathname}`);
-
-    return response;
-  }
-}
-
-// Helper function to apply rate limiting
-function applyRateLimit(request: NextRequest) {
-  const { pathname } = request.nextUrl;
-
-  // Get user's IP address from header (more reliable in Vercel/proxied envs)
-  const ip =
-    request.headers.get("x-forwarded-for")?.split(",")[0].trim() ?? "unknown";
-
-  // --- Apply Rate Limiting ---
-  const now = Date.now();
-  const ipData = requestCounts.get(ip);
-
-  if (ipData && now - ipData.timestamp < RATE_LIMIT_WINDOW_MS) {
-    // Within the window
-    if (ipData.count >= RATE_LIMIT_MAX_REQUESTS) {
-      console.warn(`Rate limit exceeded for IP: ${ip} on path: ${pathname}`);
-      return new NextResponse("Too many requests", { status: 429 });
-    }
-    // Increment count
-    ipData.count++;
-  } else {
-    // Reset count for new window or new IP
-    requestCounts.set(ip, { count: 1, timestamp: now });
+  // 1) Public HTML-only pages:
+  if (PUBLIC_PAGES.some((r) => path === r || path.startsWith(`${r}/`))) {
+    return NextResponse.next();
   }
 
-  // Clean up old entries periodically (simple approach)
-  if (Math.random() < 0.1) {
-    // Run cleanup roughly 10% of the time
-    const expiryTime = now - RATE_LIMIT_WINDOW_MS;
-    for (const [keyIp, data] of requestCounts.entries()) {
-      if (data.timestamp < expiryTime) {
-        requestCounts.delete(keyIp);
+  if (
+    path === AUTH_CONFIRM_ROUTES ||
+    path.startsWith(`${AUTH_CONFIRM_ROUTES}/`)
+  ) {
+    return NextResponse.next();
+  }
+
+  // 2) Refresh Supabase session & cookies (no redirects here)
+  const response = await updateSession(req);
+
+  // 3) Require login
+  const supabase = await createServerClient();
+  const { isAuthenticated, user } = await verifyAuth(supabase);
+  if (!isAuthenticated) {
+    const url = req.nextUrl.clone();
+    url.pathname = "/register";
+    url.searchParams.set("redirect", path);
+    return NextResponse.redirect(url);
+  }
+
+  // 4) Admin guard
+  if (ADMIN_ROUTES.some((r) => path === r || path.startsWith(`${r}/`))) {
+    if (user!.user_metadata?.role !== "admin") {
+      return NextResponse.redirect(new URL("/dashboard", req.url));
+    }
+  }
+
+  // 5) Paid‑user guard
+  if (PAID_ROUTES.some((r) => path === r || path.startsWith(`${r}/`))) {
+    if (user!.user_metadata?.role !== "admin") {
+      const { data: profile } = await supabase
+        .from("profiles")
+        .select("subscription_status")
+        .eq("id", user!.id)
+        .single();
+      if (profile?.subscription_status !== "active") {
+        return NextResponse.redirect(new URL("/payment", req.url));
       }
     }
   }
 
-  // If rate limit wasn't exceeded, return null to proceed
-  return null;
+  return response;
 }
 
 export const config = {
-  // Matcher for routes that should run the middleware
   matcher: [
-    "/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)",
+    // Run on everything _except_:
+    // – any /api/* route
+    // – next internals
+    // – asset files
+    "/((?!api/|_next/|_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)",
   ],
 };

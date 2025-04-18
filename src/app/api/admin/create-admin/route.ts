@@ -1,10 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
-import { createAdminClient, requireAdmin } from "@/utils/supabase";
+import { createAdminClient } from "@/utils/supabase/admin";
+import { requireAdmin } from "@/utils/supabase/auth";
 
 // Secure endpoint for creating admin users - only accessible to existing admins
 export async function POST(request: NextRequest) {
   // First verify the requester is already an admin
-  const authError = await requireAdmin(request);
+  const supabaseAdmin = await createAdminClient();
+  const authError = await requireAdmin(supabaseAdmin);
   if (authError) return authError;
 
   try {
@@ -17,9 +19,6 @@ export async function POST(request: NextRequest) {
         { status: 400 }
       );
     }
-
-    // Create admin client with service role
-    const supabaseAdmin = createAdminClient();
 
     // Create the user with admin role
     const { data, error } = await supabaseAdmin.auth.admin.createUser({
