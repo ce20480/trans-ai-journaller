@@ -536,13 +536,13 @@ export default function Dashboard() {
                             disabled={isUploading || isProcessing}
                             className={`flex items-center justify-center w-16 h-16 rounded-full transition-all duration-300 ${
                               isUploading || isProcessing
-                                ? "bg-red-800/50 cursor-not-allowed"
-                                : "bg-red-600 hover:bg-red-700 hover:scale-105 shadow-lg hover:shadow-red-600/30"
+                                ? "bg-[#facc15]/30 cursor-not-allowed"
+                                : "bg-gradient-to-r from-[#facc15] to-[#f97316] hover:from-[#fde047] hover:to-[#f97316] hover:scale-105 shadow-lg hover:shadow-[#facc15]/30"
                             }`}
                           >
                             <span className="sr-only">Start recording</span>
                             <svg
-                              className="w-8 h-8 text-white"
+                              className="w-8 h-8 text-black"
                               fill="currentColor"
                               viewBox="0 0 20 20"
                             >
@@ -553,11 +553,11 @@ export default function Dashboard() {
                           <button
                             type="button"
                             onClick={stopRecording}
-                            className="flex items-center justify-center w-16 h-16 bg-white/10 rounded-full hover:bg-white/20 hover:scale-105 transition-all duration-300 shadow-lg"
+                            className="flex items-center justify-center w-16 h-16 bg-white/10 backdrop-blur-sm border border-[#facc15]/20 rounded-full hover:bg-white/20 hover:scale-105 transition-all duration-300 shadow-lg"
                           >
                             <span className="sr-only">Stop recording</span>
                             <svg
-                              className="w-7 h-7 text-white"
+                              className="w-7 h-7 text-[#facc15]"
                               fill="currentColor"
                               viewBox="0 0 20 20"
                             >
@@ -569,7 +569,7 @@ export default function Dashboard() {
                         <div className="text-center">
                           {isRecording ? (
                             <div className="flex items-center">
-                              <div className="animate-pulse mr-2 h-3 w-3 rounded-full bg-red-500"></div>
+                              <div className="animate-pulse mr-2 h-3 w-3 rounded-full bg-[#facc15]"></div>
                               <span className="text-md font-medium text-white">
                                 Recording: {formatTime(recordingTime)}
                               </span>
