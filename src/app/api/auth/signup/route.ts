@@ -6,7 +6,7 @@ import { z } from "zod";
 // 1) Build a Zod schema that also enforces password === confirmPassword
 const SignupSchema = z
   .object({
-    name: z.string().trim().max(100).optional(),
+    name: z.string().trim().max(100),
     email: z.string().trim().email(),
     password: z.string().min(6),
     confirmPassword: z.string().min(6),
@@ -37,6 +37,7 @@ export async function POST(req: NextRequest) {
       password: input.password,
       options: {
         data: { name: input.name, role: "user" },
+        emailRedirectTo: `${process.env.NEXT_PUBLIC_BASE_URL}/auth/confirm`,
       },
     });
 
