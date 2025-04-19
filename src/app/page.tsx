@@ -1,6 +1,7 @@
 import Link from "next/link";
 import Image from "next/image";
 import WaitlistSection from "@/components/WaitlistSection";
+import VideoSection from "@/components/VideoSection";
 
 export default function Home() {
   return (
@@ -134,6 +135,11 @@ export default function Home() {
           </div>
         </div>
       </section>
+
+      {/* Video Section */}
+      <div className="pt-4 pb-8">
+        <VideoSection />
+      </div>
 
       {/* Emotional Resonance Visual Section */}
       <section className="py-20 bg-[#010101]">
