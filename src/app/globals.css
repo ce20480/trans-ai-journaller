@@ -52,3 +52,19 @@ html {
 .animate-slide-in-left {
   animation: slide-in-left 0.3s ease-out;
 }
+
+/* Add slide-in-top animation for mobile nav */
+@keyframes slide-in-top {
+  from {
+    transform: translateY(-20px);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+.animate-slide-in-top {
+  animation: slide-in-top 0.2s ease-out;
+}
