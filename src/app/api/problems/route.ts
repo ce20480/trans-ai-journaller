@@ -14,25 +14,31 @@ export async function POST(request: NextRequest) {
       data: { user },
     } = await supabase.auth.getUser();
 
+    // Require authentication to post problems
+    if (!user) {
+      return NextResponse.json(
+        { error: "You must be signed in to submit a problem" },
+        { status: 401 }
+      );
+    }
+
     // If user is authenticated, check their daily submission limit
-    if (user) {
-      const today = new Date();
-      today.setHours(0, 0, 0, 0);
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
 
-      // Get user's submission count for today
-      const { data: submissionData, error: countError } = await supabase
-        .from("user_problem_submissions")
-        .select("count")
-        .eq("user_id", user.id)
-        .eq("submission_date", today.toISOString().split("T")[0])
-        .single();
+    // Get user's submission count for today
+    const { data: submissionData, error: countError } = await supabase
+      .from("user_problem_submissions")
+      .select("count")
+      .eq("user_id", user.id)
+      .eq("submission_date", today.toISOString().split("T")[0])
+      .single();
 
-      if (!countError && submissionData && submissionData.count >= 3) {
-        return NextResponse.json(
-          { error: "You've reached the limit of 3 problems per day" },
-          { status: 429 }
-        );
-      }
+    if (!countError && submissionData && submissionData.count >= 3) {
+      return NextResponse.json(
+        { error: "You've reached the limit of 3 problems per day" },
+        { status: 429 }
+      );
     }
 
     // Validate fields

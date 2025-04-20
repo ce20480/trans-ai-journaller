@@ -18,6 +18,7 @@ export default function CommunityPage() {
   const [totalPages, setTotalPages] = useState(0);
   const [currentPage, setCurrentPage] = useState(1);
   const [userDailySubmissionCount, setUserDailySubmissionCount] = useState(0);
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
   const LIMIT = 12;
   const MAX_SUBMISSIONS = 3;
 
@@ -59,17 +60,18 @@ export default function CommunityPage() {
         data: { user },
       } = await supabase.auth.getUser();
 
-      console.log("User metadata:", user?.user_metadata);
-
-      if (user?.user_metadata?.role === "admin") {
-        setIsAdmin(true);
-        console.log("Admin status: true");
-      } else {
-        console.log("Admin status: false - Role is not admin");
-      }
-
-      // If user is authenticated, get their daily submission count
       if (user) {
+        setIsAuthenticated(true);
+        console.log("User is authenticated", user.id);
+
+        if (user.user_metadata?.role === "admin") {
+          setIsAdmin(true);
+          console.log("Admin status: true");
+        } else {
+          console.log("Admin status: false - Role is not admin");
+        }
+
+        // If user is authenticated, get their daily submission count
         const today = new Date();
         today.setHours(0, 0, 0, 0);
 
@@ -83,6 +85,9 @@ export default function CommunityPage() {
         if (submissionData) {
           setUserDailySubmissionCount(submissionData.count);
         }
+      } else {
+        setIsAuthenticated(false);
+        console.log("User is not authenticated");
       }
     };
 
@@ -163,9 +168,19 @@ export default function CommunityPage() {
             <h2 className="text-2xl font-bold text-white">
               Community Problems
             </h2>
-            {totalProblems > 0 && (
-              <span className="text-[#facc15]">{totalProblems} Problems</span>
-            )}
+            <div className="flex items-center gap-2">
+              {totalProblems > 0 && (
+                <span className="text-[#facc15]">{totalProblems} Problems</span>
+              )}
+              {!isAuthenticated && (
+                <div className="text-white/70 text-sm ml-2">
+                  <a href="/login" className="text-[#facc15] hover:underline">
+                    Sign in
+                  </a>{" "}
+                  to share your problems
+                </div>
+              )}
+            </div>
           </div>
 
           <ProblemsList
@@ -242,33 +257,35 @@ export default function CommunityPage() {
         </section>
       </main>
 
-      {/* Floating Action Button */}
-      <button
-        onClick={() => setIsModalOpen(true)}
-        className="fixed bottom-6 right-6 z-40 w-14 h-14 rounded-full bg-gradient-to-r from-[#facc15] to-[#f97316] flex items-center justify-center shadow-lg hover:shadow-xl hover:from-[#fde047] hover:translate-y-[-2px] transition-all duration-300"
-        aria-label="Add new problem"
-        disabled={userDailySubmissionCount >= MAX_SUBMISSIONS}
-        title={
-          userDailySubmissionCount >= MAX_SUBMISSIONS
-            ? "You've reached the maximum number of submissions for today"
-            : "Add new problem"
-        }
-      >
-        <svg
-          xmlns="http://www.w3.org/2000/svg"
-          className="h-8 w-8 text-black"
-          fill="none"
-          viewBox="0 0 24 24"
-          stroke="currentColor"
+      {/* Floating Action Button - Only show for authenticated users */}
+      {isAuthenticated && (
+        <button
+          onClick={() => setIsModalOpen(true)}
+          className="fixed bottom-6 right-6 z-40 w-14 h-14 rounded-full bg-gradient-to-r from-[#facc15] to-[#f97316] flex items-center justify-center shadow-lg hover:shadow-xl hover:from-[#fde047] hover:translate-y-[-2px] transition-all duration-300"
+          aria-label="Add new problem"
+          disabled={userDailySubmissionCount >= MAX_SUBMISSIONS}
+          title={
+            userDailySubmissionCount >= MAX_SUBMISSIONS
+              ? "You've reached the maximum number of submissions for today"
+              : "Add new problem"
+          }
         >
-          <path
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            strokeWidth={2}
-            d="M12 4v16m8-8H4"
-          />
-        </svg>
-      </button>
+          <svg
+            xmlns="http://www.w3.org/2000/svg"
+            className="h-8 w-8 text-black"
+            fill="none"
+            viewBox="0 0 24 24"
+            stroke="currentColor"
+          >
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeWidth={2}
+              d="M12 4v16m8-8H4"
+            />
+          </svg>
+        </button>
+      )}
 
       {/* Problem Submission Modal */}
       <AddProblemModal
