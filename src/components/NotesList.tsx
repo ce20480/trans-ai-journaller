@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback } from "react";
 import NoteCard from "./NoteCard";
+import SubscriptionPopup from "./SubscriptionPopup";
 import { createClient } from "@/utils/supabase/client";
 
 export interface Note {
@@ -14,12 +15,19 @@ export interface Note {
   created_at: string;
 }
 
+export interface UserProfile {
+  subscription_status: string;
+  free_notes_count: number;
+}
+
 export default function NotesList() {
   const supabase = createClient();
 
   const [notes, setNotes] = useState<Note[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
+  const [showSubscriptionPopup, setShowSubscriptionPopup] = useState(false);
 
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedTag, setSelectedTag] = useState<string | null>(null);
@@ -39,6 +47,22 @@ export default function NotesList() {
         return;
       }
       setUserRole(session.user.user_metadata?.role ?? "user");
+
+      // Also fetch the user profile to get subscription status and free notes count
+      const { data: profile, error: profileErr } = await supabase
+        .from("profiles")
+        .select("subscription_status, free_notes_count")
+        .eq("id", session.user.id)
+        .single();
+
+      if (profileErr) {
+        console.error("Error fetching user profile:", profileErr);
+      } else if (profile) {
+        setUserProfile({
+          subscription_status: profile.subscription_status,
+          free_notes_count: profile.free_notes_count || 0,
+        });
+      }
     })();
   }, [supabase]);
 
@@ -99,6 +123,21 @@ export default function NotesList() {
     return matchesText && matchesTag;
   });
 
+  // Function to check if user should see subscription popup
+  const checkFreeNotesLimit = useCallback(() => {
+    if (!userProfile) return;
+
+    // Don't show popup for admins or paid users
+    if (userRole === "admin" || userProfile.subscription_status === "active") {
+      return;
+    }
+
+    // Show popup if user has reached 3 free notes
+    if (userProfile.free_notes_count >= 3) {
+      setShowSubscriptionPopup(true);
+    }
+  }, [userProfile, userRole]);
+
   // 4️⃣ delete handler
   const handleDelete = useCallback(
     async (id: string) => {
@@ -129,6 +168,13 @@ export default function NotesList() {
     [supabase]
   );
 
+  // Check free notes limit when component mounts
+  useEffect(() => {
+    if (userProfile) {
+      checkFreeNotesLimit();
+    }
+  }, [userProfile, checkFreeNotesLimit]);
+
   if (loading) {
     return (
       <div className="text-center py-10 text-[#b3b3b3]">Loading notes…</div>
@@ -142,6 +188,12 @@ export default function NotesList() {
 
   return (
     <div className="space-y-6">
+      {/* Subscription Limit Popup */}
+      <SubscriptionPopup
+        isOpen={showSubscriptionPopup}
+        onClose={() => setShowSubscriptionPopup(false)}
+      />
+
       {/* Search & Tag filter */}
       <div className="flex flex-col md:flex-row justify-between gap-4 bg-[#1a1a1a] p-4 rounded border border-[#373737]">
         <input
@@ -178,6 +230,42 @@ export default function NotesList() {
           ))}
         </div>
       </div>
+
+      {/* Free Notes Limit Notice */}
+      {userProfile &&
+        userProfile.subscription_status !== "active" &&
+        userRole !== "admin" && (
+          <div className="p-4 bg-[#262626] rounded border border-[#373737]">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-white">
+                  <span className="font-medium">Free Notes:</span>{" "}
+                  <span
+                    className={
+                      userProfile.free_notes_count >= 3
+                        ? "text-red-400"
+                        : "text-[#facc15]"
+                    }
+                  >
+                    {userProfile.free_notes_count}/3
+                  </span>{" "}
+                  used
+                </p>
+                <p className="text-sm text-[#b3b3b3]">
+                  Subscribe for unlimited notes and features.
+                </p>
+              </div>
+              {userProfile.free_notes_count >= 3 && (
+                <button
+                  onClick={() => setShowSubscriptionPopup(true)}
+                  className="bg-[#facc15] hover:bg-[#fde047] text-black px-4 py-2 rounded-lg text-sm font-medium"
+                >
+                  Upgrade Now
+                </button>
+              )}
+            </div>
+          </div>
+        )}
 
       {/* Note Cards */}
       {filtered.length === 0 ? (

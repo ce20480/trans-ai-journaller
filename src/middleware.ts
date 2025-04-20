@@ -13,7 +13,8 @@ const PUBLIC_PAGES = [
   "/cookies",
 ];
 const ADMIN_ROUTES = ["/admin"];
-const PAID_ROUTES = ["/dashboard", "/dashboard/notes", "/dashboard/waitlist"];
+// Routes that require authentication but not necessarily a subscription
+const AUTH_ROUTES = ["/dashboard", "/dashboard/notes", "/dashboard/waitlist"];
 const AUTH_CONFIRM_ROUTES = "/auth/confirm";
 
 export async function middleware(req: NextRequest) {
@@ -34,33 +35,26 @@ export async function middleware(req: NextRequest) {
   // 2) Refresh Supabase session & cookies (no redirects here)
   const response = await updateSession(req);
 
-  // 3) Require login
-  const supabase = await createServerClient();
-  const { isAuthenticated, user } = await verifyAuth(supabase);
-  if (!isAuthenticated) {
-    const url = req.nextUrl.clone();
-    url.pathname = "/register";
-    url.searchParams.set("redirect", path);
-    return NextResponse.redirect(url);
-  }
+  // 3) Check if the route requires authentication
+  const requiresAuth =
+    AUTH_ROUTES.some((r) => path === r || path.startsWith(`${r}/`)) ||
+    ADMIN_ROUTES.some((r) => path === r || path.startsWith(`${r}/`));
 
-  // 4) Admin guard
-  if (ADMIN_ROUTES.some((r) => path === r || path.startsWith(`${r}/`))) {
-    if (user!.user_metadata?.role !== "admin") {
-      return NextResponse.redirect(new URL("/dashboard", req.url));
+  if (requiresAuth) {
+    const supabase = await createServerClient();
+    const { isAuthenticated, user } = await verifyAuth(supabase);
+
+    if (!isAuthenticated) {
+      const url = req.nextUrl.clone();
+      url.pathname = "/login";
+      url.searchParams.set("redirect", path);
+      return NextResponse.redirect(url);
     }
-  }
 
-  // 5) Paid‑user guard
-  if (PAID_ROUTES.some((r) => path === r || path.startsWith(`${r}/`))) {
-    if (user!.user_metadata?.role !== "admin") {
-      const { data: profile } = await supabase
-        .from("profiles")
-        .select("subscription_status")
-        .eq("id", user!.id)
-        .single();
-      if (profile?.subscription_status !== "active") {
-        return NextResponse.redirect(new URL("/payment", req.url));
+    // 4) Admin guard
+    if (ADMIN_ROUTES.some((r) => path === r || path.startsWith(`${r}/`))) {
+      if (user!.user_metadata?.role !== "admin") {
+        return NextResponse.redirect(new URL("/dashboard", req.url));
       }
     }
   }

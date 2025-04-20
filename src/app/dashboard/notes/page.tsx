@@ -19,26 +19,11 @@ export default async function NotesPage() {
     return redirect(`/login?redirect=/dashboard/notes`);
   }
 
-  // 3️⃣ Role & subscription guard
-  const role = user.user_metadata?.role;
-  if (role !== "admin") {
-    // for non‑admins, check subscription_status
-    const { data: profile } = await supabase
-      .from("profiles")
-      .select("subscription_status")
-      .eq("id", user.id)
-      .single();
+  // No longer checking for active subscription - all authenticated users can access
 
-    if (profile?.subscription_status !== "active") {
-      // bounce to payment page
-      return redirect("/payment");
-    }
-  }
-
-  // 4️⃣ Authorized! Render page content
+  // Render page content
   return (
-    <main className="min-h-screen bg-[#0d0d0d]">
-      {/* your header block was redundant */}
+    <main className="min-h-screen bg-[#010101]">
       <header className="bg-[#1a1a1a] shadow-md sticky top-0 z-40 border-b border-[#262626]">
         <div className="container mx-auto px-6 py-3 flex justify-between items-center">
           <h1 className="text-xl font-bold text-white">T2A Notes</h1>
@@ -63,7 +48,7 @@ export default async function NotesPage() {
         <div className="flex justify-between items-center mb-8">
           <h2 className="text-3xl font-bold text-white">My Notes</h2>
           <Link
-            href="/dashboard"
+            href="/dashboard/notes/new"
             className="bg-[#facc15] hover:bg-[#fde047] text-black px-5 py-2 rounded-full text-sm font-medium transition-colors flex items-center"
           >
             <svg

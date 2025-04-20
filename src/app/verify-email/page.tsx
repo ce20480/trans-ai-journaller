@@ -55,8 +55,8 @@ export default function VerifyEmailPage() {
   };
 
   const handleContinue = () => {
-    // reload so that your Supabase cookie is picked up
-    router.refresh();
+    // Redirect to dashboard instead of just refreshing
+    router.push("/dashboard");
   };
 
   return (

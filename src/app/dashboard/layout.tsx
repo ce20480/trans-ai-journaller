@@ -20,19 +20,12 @@ export default async function DashboardAreaLayout({
 
   const role = user.user_metadata?.role;
 
-  // Non‑admins need an active subscription
-  if (role !== "admin") {
-    const { data: profile } = await supabase
-      .from("profiles")
-      .select("subscription_status")
-      .eq("id", user.id)
-      .single();
-
-    if (profile?.subscription_status !== "active") {
-      return redirect("/payment");
-    }
+  // Only admins need special handling - we allow all authenticated users now
+  if (role === "admin") {
+    // Admin users can always access the dashboard
+    return <DashboardLayout>{children}</DashboardLayout>;
   }
 
-  // Wrap all dashboard sub‑pages in the client layout
+  // For regular users, we allow access but will limit features in the API
   return <DashboardLayout>{children}</DashboardLayout>;
 }
