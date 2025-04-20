@@ -19,6 +19,7 @@ export default function AddProblemModal({
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const titleInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -43,6 +44,8 @@ export default function AddProblemModal({
     if (!title.trim() || !description.trim()) return;
 
     setIsSubmitting(true);
+    setError(null);
+
     try {
       const res = await fetch(`/api/problems`, {
         method: "POST",
@@ -54,7 +57,10 @@ export default function AddProblemModal({
         }),
       });
 
-      if (!res.ok) throw new Error("Failed to share problem");
+      if (!res.ok) {
+        const errorData = await res.json();
+        throw new Error(errorData.error || "Failed to share problem");
+      }
 
       const result = await res.json();
       onSubmit(result);
@@ -63,6 +69,9 @@ export default function AddProblemModal({
       onClose();
     } catch (err) {
       console.error(err);
+      setError(
+        err instanceof Error ? err.message : "An unknown error occurred"
+      );
     } finally {
       setIsSubmitting(false);
     }
@@ -115,6 +124,12 @@ export default function AddProblemModal({
             </span>
           )}
         </p>
+
+        {error && (
+          <div className="bg-red-900/30 border border-red-500/50 rounded-lg p-3 mb-4 text-sm text-red-300">
+            {error}
+          </div>
+        )}
 
         <div className="mb-4">
           <input
