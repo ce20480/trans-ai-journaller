@@ -3,7 +3,7 @@
  */
 
 // User limits
-export const FREE_NOTES_LIMIT = 5;
+export const FREE_NOTES_LIMIT = 50;
 
 // Subscription tiers
 export const SUBSCRIPTION_TIERS = {
