@@ -4,6 +4,7 @@ import { useState, useRef, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { createClient } from "@/utils/supabase/client";
+import { FREE_NOTES_LIMIT } from "@/utils/constants";
 
 export default function Dashboard() {
   const supabase = createClient();
@@ -470,7 +471,7 @@ export default function Dashboard() {
               <div className="flex items-center">
                 <span className="text-white/70 text-sm mr-2">Notes used: </span>
                 <span className="text-sm font-medium text-white">
-                  {userProfile.free_notes_count ?? "..."}/3
+                  {userProfile.free_notes_count ?? "..."}/{FREE_NOTES_LIMIT}
                 </span>
                 <button
                   onClick={refreshProfileData}

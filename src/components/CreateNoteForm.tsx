@@ -76,7 +76,7 @@ export default function CreateNoteForm() {
         userProfile &&
         userRole !== "admin" &&
         userProfile.subscription_status !== "active" &&
-        userProfile.free_notes_count >= 3
+        userProfile.free_notes_count >= 5
       ) {
         setShowSubscriptionPopup(true);
         return;

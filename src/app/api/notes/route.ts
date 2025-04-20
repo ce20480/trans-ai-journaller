@@ -4,6 +4,7 @@ export const runtime = "nodejs";
 import { NextRequest, NextResponse } from "next/server";
 import { createClient as createServerClient } from "@/utils/supabase/server";
 import { verifyAuth } from "@/utils/supabase/auth";
+import { FREE_NOTES_LIMIT } from "@/utils/constants";
 
 export async function GET(request: NextRequest) {
   const supabase = await createServerClient();
@@ -67,7 +68,7 @@ export async function GET(request: NextRequest) {
       canCreateNote:
         userProfile?.subscription_status === "active" ||
         isAdmin ||
-        (userProfile?.free_notes_count ?? 0) < 3,
+        (userProfile?.free_notes_count ?? 0) < FREE_NOTES_LIMIT,
     },
   });
 }
@@ -131,12 +132,13 @@ export async function POST(request: NextRequest) {
     - Admin: ${isAdmin ? "Yes" : "No"}
   `);
 
-  if (!isSubscribed && !isAdmin && freeNotesCount >= 3) {
-    console.log(`❌ Notes API - Free limit reached: ${freeNotesCount}/3`);
+  if (!isSubscribed && !isAdmin && freeNotesCount >= FREE_NOTES_LIMIT) {
+    console.log(
+      `❌ Notes API - Free limit reached: ${freeNotesCount}/${FREE_NOTES_LIMIT}`
+    );
     return NextResponse.json(
       {
-        error:
-          "Free note limit reached. Please subscribe to create more notes.",
+        error: `Free note limit reached (${freeNotesCount}/${FREE_NOTES_LIMIT}). Please subscribe to create more notes.`,
         code: "FREE_LIMIT_REACHED",
       },
       { status: 402 }
