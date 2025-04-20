@@ -4,6 +4,7 @@ import { useState, useRef, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { createClient } from "@/utils/supabase/client";
+import { FREE_NOTES_LIMIT } from "@/utils/constants";
 
 export default function Dashboard() {
   const supabase = createClient();
@@ -22,6 +23,13 @@ export default function Dashboard() {
   const [isEditingTag, setIsEditingTag] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const router = useRouter();
+
+  // Add user profile state
+  const [userProfile, setUserProfile] = useState<{
+    subscription_status?: string;
+    free_notes_count?: number;
+    isAdmin?: boolean;
+  }>({});
 
   // Audio recording states
   const [isRecording, setIsRecording] = useState(false);
@@ -47,6 +55,18 @@ export default function Dashboard() {
         }
 
         setIsAuthenticated(true);
+
+        // Fetch user profile data for debugging
+        const response = await fetch(`/api/notes?user_id=${user.id}`);
+        const responseData = await response.json();
+        if (responseData?.userProfile) {
+          setUserProfile({
+            subscription_status: responseData.userProfile.subscription_status,
+            free_notes_count: responseData.userProfile.free_notes_count,
+            isAdmin: responseData.userProfile.role === "admin",
+          });
+          console.log("User profile loaded:", responseData.userProfile);
+        }
       } catch (err: unknown) {
         console.error("Authentication check failed:", err);
         router.push("/login");
@@ -134,8 +154,20 @@ export default function Dashboard() {
       }, 1000);
     } catch (err) {
       console.error("Error starting recording:", err);
-      setError("Could not access microphone");
-      setErrorDetails(err instanceof Error ? err.message : "Unknown error");
+
+      // Provide more specific error messages for permission issues
+      if (err instanceof DOMException && err.name === "NotAllowedError") {
+        setError("Microphone access denied");
+        setErrorDetails(
+          "Please allow microphone access in your browser settings and refresh the page."
+        );
+      } else if (err instanceof DOMException && err.name === "NotFoundError") {
+        setError("No microphone found");
+        setErrorDetails("Please connect a microphone and try again.");
+      } else {
+        setError("Could not access microphone");
+        setErrorDetails(err instanceof Error ? err.message : "Unknown error");
+      }
     }
   };
 
@@ -251,24 +283,34 @@ export default function Dashboard() {
       }
 
       const userId = session.user.id;
-      const { error: saveError } = await supabase.from("notes").insert([
-        {
+
+      // Use the notes API instead of direct Supabase call to ensure free_notes_count gets updated
+      const noteRes = await fetch("/api/notes", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
           title: `Idea from ${new Date().toLocaleString()}`,
           content: transcription,
           summary: summaryContent,
           tag: aiTag,
           source: "dashboard_upload",
           user_id: userId,
-        },
-      ]);
-      if (saveError) {
-        throw new Error("Failed to save to database", {
-          cause: saveError.message,
+        }),
+      });
+
+      if (!noteRes.ok) {
+        const noteResData = await noteRes.json();
+        throw new Error(noteResData.error || "Failed to save note", {
+          cause: noteResData.code || "SAVE_ERROR",
         });
       }
-      console.log("Data saved to Supabase");
+
+      console.log("Data saved via API, note count should be updated");
 
       setSummary(summaryArray);
+
+      // After saving the note, refresh the profile data to show updated counts
+      await refreshProfileData();
 
       // ─── 5) RESET UI ─────────────────────────────────────────────────
       if (fileInputRef.current) fileInputRef.current.value = "";
@@ -366,6 +408,30 @@ export default function Dashboard() {
     return "🏷️"; // Default tag emoji
   };
 
+  // Add function to refresh profile data
+  const refreshProfileData = async () => {
+    try {
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+
+      if (user) {
+        const response = await fetch(`/api/notes?user_id=${user.id}`);
+        const responseData = await response.json();
+        if (responseData?.userProfile) {
+          setUserProfile({
+            subscription_status: responseData.userProfile.subscription_status,
+            free_notes_count: responseData.userProfile.free_notes_count,
+            isAdmin: responseData.userProfile.role === "admin",
+          });
+          console.log("User profile refreshed:", responseData.userProfile);
+        }
+      }
+    } catch (err) {
+      console.error("Failed to refresh profile:", err);
+    }
+  };
+
   // Show loading state while checking authentication
   if (isAuthenticated === null) {
     return (
@@ -386,6 +452,48 @@ export default function Dashboard() {
             <h1 className="text-3xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-[#facc15] to-[#f97316] mb-8 text-center">
               Audio to Insights
             </h1>
+
+            {/* Add Profile Debug Info */}
+            <div className="mb-6 p-3 bg-black/30 rounded-lg border border-white/10 flex justify-between items-center">
+              <div>
+                <span className="text-white/70 text-sm">Status: </span>
+                <span
+                  className={`text-sm font-medium ${userProfile.subscription_status === "active" ? "text-green-400" : "text-white"}`}
+                >
+                  {userProfile.subscription_status || "loading..."}
+                </span>
+                {userProfile.isAdmin && (
+                  <span className="ml-2 px-2 py-0.5 bg-[#facc15]/20 text-[#facc15] text-xs rounded-full">
+                    Admin
+                  </span>
+                )}
+              </div>
+              <div className="flex items-center">
+                <span className="text-white/70 text-sm mr-2">Notes used: </span>
+                <span className="text-sm font-medium text-white">
+                  {userProfile.free_notes_count ?? "..."}/{FREE_NOTES_LIMIT}
+                </span>
+                <button
+                  onClick={refreshProfileData}
+                  className="ml-3 p-1 text-[#facc15] hover:text-[#fde047] rounded-full"
+                  title="Refresh profile data"
+                >
+                  <svg
+                    className="w-4 h-4"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth="2"
+                      d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
+                    />
+                  </svg>
+                </button>
+              </div>
+            </div>
 
             {error && (
               <div className="mb-8 p-4 bg-red-900/30 text-red-300 rounded-lg border border-red-700/50 shadow-sm">
@@ -524,6 +632,13 @@ export default function Dashboard() {
                     </svg>
                     Record Audio
                   </h3>
+
+                  {/* Add help text for microphone access */}
+                  <p className="text-xs text-white/70 mb-4">
+                    You&apos;ll need to grant microphone permissions to record
+                    audio. If you experience issues, check your browser
+                    settings.
+                  </p>
 
                   <div className="flex flex-col items-center justify-center py-6 px-4 bg-black/20 rounded-xl border border-white/5">
                     {/* Recording interface */}

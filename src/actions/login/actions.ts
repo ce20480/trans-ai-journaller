@@ -56,9 +56,9 @@ export async function login(formData: FormData) {
         revalidatePath("/", "layout");
         redirect("/dashboard");
       } else {
-        console.log("Unpaid user redirected to payment");
+        console.log("Now authenticated, free users allowed 3 notes");
         revalidatePath("/", "layout");
-        redirect("/payment");
+        redirect("/dashboard");
       }
 
       // We never reach here because redirect() throws an error
