@@ -74,6 +74,12 @@ export default function Navigation({ user }: { user: User | null }) {
               >
                 My Notes
               </Link>
+              <Link
+                href="/community"
+                className="text-[#b3b3b3] hover:text-[#facc15] transition-colors"
+              >
+                Community
+              </Link>
               <LogoutButton />
             </>
           ) : (
@@ -171,6 +177,13 @@ export default function Navigation({ user }: { user: User | null }) {
                   onClick={() => setIsMobileMenuOpen(false)}
                 >
                   My Notes
+                </Link>
+                <Link
+                  href="/community"
+                  className="block py-2 text-[#b3b3b3] hover:text-[#facc15] transition-colors"
+                  onClick={() => setIsMobileMenuOpen(false)}
+                >
+                  Community
                 </Link>
                 <div className="pt-2">
                   <LogoutButton />
