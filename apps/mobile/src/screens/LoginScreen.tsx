@@ -9,8 +9,15 @@ import {
   Platform,
   ActivityIndicator,
   Alert,
+  Linking,
 } from "react-native";
-import { useAuth } from "../context/AuthProvider";
+import { MaterialIcons } from "@expo/vector-icons";
+import {
+  useAuthStore,
+  useAuthStatus,
+  useAuthError,
+  useIsLoading,
+} from "../store/authStore";
 
 type LoginScreenProps = {
   navigation: any;
@@ -19,41 +26,118 @@ type LoginScreenProps = {
 export default function LoginScreen({ navigation }: LoginScreenProps) {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [error, setError] = useState("");
-  const [isLoading, setIsLoading] = useState(false);
   const [isSignUp, setIsSignUp] = useState(false);
 
-  // Use the Auth context
-  const { signIn, signUp } = useAuth();
+  // Get auth state and actions from the store
+  const status = useAuthStatus();
+  const error = useAuthError();
+  const isLoading = useIsLoading();
+  const {
+    signInWithEmail,
+    signUpWithEmail,
+    signInWithGoogle,
+    processGoogleRedirect,
+  } = useAuthStore();
+
+  // Set up deep link handler
+  useEffect(() => {
+    // Handle deep linking from Google Auth redirect
+    const handleDeepLink = async (event: { url: string }) => {
+      // Only log the URL path without tokens for security
+      console.log("Deep link received:", event.url.split("?")[0]);
+
+      try {
+        // Check if the URL contains an access token in the fragment
+        if (event.url.includes("#access_token=")) {
+          console.log("Auth access token received in URL fragment");
+
+          // For fragment URLs, we need to manually parse them
+          // Extract the hash fragment
+          const hashFragment = event.url.split("#")[1];
+          if (!hashFragment) {
+            throw new Error("Invalid auth response");
+          }
+
+          // Parse the fragment string into key-value pairs
+          const params = new URLSearchParams(hashFragment);
+          const accessToken = params.get("access_token");
+          const refreshToken = params.get("refresh_token");
+
+          if (!accessToken) {
+            throw new Error("No access token found");
+          }
+
+          console.log("Access token present, processing...");
+
+          // Process the redirect with our new state machine
+          await processGoogleRedirect({
+            access_token: accessToken,
+            refresh_token: refreshToken || undefined,
+          });
+
+          // Force status back to authenticated if needed
+          setTimeout(() => {
+            const currentStatus = useAuthStore.getState().status;
+            console.log("[LoginScreen] Auth state after OAuth:", currentStatus);
+
+            // If still in loading, force it to authenticated
+            if (currentStatus === "loading" || currentStatus === "idle") {
+              console.log("[LoginScreen] Forcing auth state to authenticated");
+              useAuthStore.setState({ status: "authenticated" });
+            }
+          }, 1000);
+        } else if (event.url.includes("?code=")) {
+          // Handle code-based auth flow (less common with Supabase)
+          console.log(
+            "Code-based auth flow detected - this is uncommon with Supabase OAuth"
+          );
+        }
+      } catch (error) {
+        console.error("Deep link error:", error);
+      }
+    };
+
+    // Add event listener for deep links
+    Linking.addEventListener("url", handleDeepLink);
+
+    // Check if app was opened with a deep link
+    Linking.getInitialURL().then((url) => {
+      if (url) {
+        console.log("App opened with URL:", url.split("?")[0]);
+        handleDeepLink({ url });
+      }
+    });
+
+    return () => {
+      // Clean up listener if needed (depends on React Native version)
+    };
+  }, [processGoogleRedirect]);
 
   const handleAuth = async () => {
     // Basic validation
     if (!email || !password) {
-      setError("Please enter both email and password");
+      Alert.alert("Error", "Please enter both email and password");
       return;
     }
 
     if (!email.includes("@") || !email.includes(".")) {
-      setError("Please enter a valid email address");
+      Alert.alert("Error", "Please enter a valid email address");
       return;
     }
 
     if (password.length < 6) {
-      setError("Password must be at least 6 characters");
+      Alert.alert("Error", "Password must be at least 6 characters");
       return;
     }
-
-    setIsLoading(true);
-    setError("");
 
     try {
       if (isSignUp) {
         // Sign up
-        const { error: signUpError, data } = await signUp(email, password);
+        await signUpWithEmail(email, password);
 
-        if (signUpError) throw signUpError;
-
-        if (data?.user) {
+        // If we get here without an error and status isn't authenticated,
+        // it likely means email confirmation is required
+        if (status === "unauthenticated") {
           Alert.alert(
             "Sign Up Successful",
             "Please check your email to confirm your account before logging in.",
@@ -62,22 +146,38 @@ export default function LoginScreen({ navigation }: LoginScreenProps) {
         }
       } else {
         // Login
-        const { error: signInError } = await signIn(email, password);
-
-        if (signInError) throw signInError;
-
-        // AuthProvider will automatically update the navigation
-        // No manual navigation needed here
+        await signInWithEmail(email, password);
       }
-    } catch (error: any) {
-      console.error("Auth error:", error);
-      setError(error.message || "Authentication failed");
-    } finally {
-      setIsLoading(false);
+    } catch (err) {
+      // Error handling is done in the store, this is just for unexpected errors
+      console.error("Unexpected auth error:", err);
     }
   };
 
-  if (isLoading) {
+  const handleGoogleSignIn = async () => {
+    try {
+      // Start Google sign-in process
+      const result = await signInWithGoogle();
+
+      // Once we have the URL, we need to open it in the browser
+      // At this point, the auth process will continue in the browser,
+      // so we should not show the loading state until we get back to the app
+      if (result?.url) {
+        // Open browser for Google OAuth flow
+        await Linking.openURL(result.url);
+        // The loading state will be set again when we return to the app
+        // via the deep link handler in useEffect
+      }
+    } catch (err) {
+      // Error handling is done in the store, this is just for unexpected errors
+      console.error("Unexpected Google sign-in error:", err);
+    }
+  };
+
+  // Use status to determine loading, not a separate isLoading flag
+  const showLoading = status === "loading";
+
+  if (showLoading) {
     return (
       <View style={styles.loadingContainer}>
         <ActivityIndicator size="large" color="#facc15" />
@@ -125,7 +225,7 @@ export default function LoginScreen({ navigation }: LoginScreenProps) {
             />
           </View>
 
-          {error ? <Text style={styles.errorText}>{error}</Text> : null}
+          {error && <Text style={styles.errorText}>{error.message}</Text>}
 
           <TouchableOpacity style={styles.authButton} onPress={handleAuth}>
             <Text style={styles.authButtonText}>
@@ -133,12 +233,23 @@ export default function LoginScreen({ navigation }: LoginScreenProps) {
             </Text>
           </TouchableOpacity>
 
+          <View style={styles.divider}>
+            <View style={styles.dividerLine} />
+            <Text style={styles.dividerText}>OR</Text>
+            <View style={styles.dividerLine} />
+          </View>
+
+          <TouchableOpacity
+            style={styles.googleButton}
+            onPress={handleGoogleSignIn}
+          >
+            <MaterialIcons name="email" size={20} color="#fff" />
+            <Text style={styles.googleButtonText}>Sign in with Google</Text>
+          </TouchableOpacity>
+
           <TouchableOpacity
             style={styles.switchButton}
-            onPress={() => {
-              setIsSignUp(!isSignUp);
-              setError("");
-            }}
+            onPress={() => setIsSignUp(!isSignUp)}
           >
             <Text style={styles.switchButtonText}>
               {isSignUp
@@ -229,5 +340,35 @@ const styles = StyleSheet.create({
     color: "white",
     marginTop: 10,
     fontSize: 16,
+  },
+  divider: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginVertical: 20,
+  },
+  dividerLine: {
+    flex: 1,
+    height: 1,
+    backgroundColor: "#373737",
+  },
+  dividerText: {
+    color: "#b3b3b3",
+    paddingHorizontal: 10,
+    fontSize: 14,
+  },
+  googleButton: {
+    flexDirection: "row",
+    backgroundColor: "#4285F4",
+    borderRadius: 8,
+    padding: 15,
+    alignItems: "center",
+    justifyContent: "center",
+    marginBottom: 15,
+  },
+  googleButtonText: {
+    color: "white",
+    fontSize: 16,
+    fontWeight: "bold",
+    marginLeft: 10,
   },
 });

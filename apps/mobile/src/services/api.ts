@@ -17,6 +17,22 @@ export interface NoteAnalysis {
   suggestedTag: string;
 }
 
+// Helper function to create authorization headers
+const getAuthHeaders = (
+  jwtToken: string | null,
+  contentType = "application/json"
+) => {
+  if (!jwtToken) {
+    console.warn("[API] No JWT token provided for request");
+    throw new Error("Authentication token missing");
+  }
+
+  return {
+    Authorization: `Bearer ${jwtToken}`,
+    "Content-Type": contentType,
+  };
+};
+
 export default {
   /**
    * Get all notes for a user
@@ -26,15 +42,10 @@ export default {
       console.log(`[API] Getting notes for user: ${userId}`);
       console.log(`[API] JWT token available: ${jwtToken ? "yes" : "no"}`);
 
-      if (!jwtToken) {
-        console.warn("[API] No JWT token provided for getNotes request");
-        throw new Error("Authentication token missing");
-      }
+      const headers = getAuthHeaders(jwtToken);
 
       const response = await api.get(`/api/notes?user_id=${userId}`, {
-        headers: {
-          Authorization: `Bearer ${jwtToken}`,
-        },
+        headers,
       });
 
       const notes = response.data?.data || [];
@@ -59,10 +70,8 @@ export default {
       console.log(`[API] JWT token available: ${jwtToken ? "yes" : "no"}`);
       console.log(`[API] Audio URI: ${audioUri}`);
 
-      if (!jwtToken) {
-        console.warn("[API] No JWT token provided for uploadRecording request");
-        throw new Error("Authentication token missing");
-      }
+      // Get auth headers but we'll use custom headers for fetch
+      const authHeaders = getAuthHeaders(jwtToken);
 
       // First, fetch the file content
       const response = await fetch(audioUri);
@@ -81,7 +90,7 @@ export default {
         method: "POST",
         headers: {
           "Content-Type": "audio/m4a",
-          Authorization: `Bearer ${jwtToken}`,
+          Authorization: authHeaders.Authorization,
           "X-User-ID": userId,
         },
         body: audioBlob,
@@ -125,10 +134,7 @@ export default {
       console.log(`[API] JWT token available: ${jwtToken ? "yes" : "no"}`);
       console.log(`[API] Filename: ${filename}`);
 
-      if (!jwtToken) {
-        console.warn("[API] No JWT token provided for transcribeAudio request");
-        throw new Error("Authentication token missing");
-      }
+      const headers = getAuthHeaders(jwtToken);
 
       // First check if we have an uploadUrl from a direct upload
       let uploadUrl = null;
@@ -154,11 +160,7 @@ export default {
           uploadUrl, // Pass uploadUrl if we have it
           user_id: userId,
         },
-        {
-          headers: {
-            Authorization: `Bearer ${jwtToken}`,
-          },
-        }
+        { headers }
       );
 
       // Response may have either 'transcription' or 'text' field
@@ -187,19 +189,12 @@ export default {
       console.log(`[API] Analyzing text for user: ${userId}`);
       console.log(`[API] JWT token available: ${jwtToken ? "yes" : "no"}`);
 
-      if (!jwtToken) {
-        console.warn("[API] No JWT token provided for analyzeSummary request");
-        throw new Error("Authentication token missing");
-      }
+      const headers = getAuthHeaders(jwtToken);
 
       const response = await api.post(
         "/api/analyze",
         { text, user_id: userId },
-        {
-          headers: {
-            Authorization: `Bearer ${jwtToken}`,
-          },
-        }
+        { headers }
       );
 
       console.log("[API] Successfully analyzed text");
@@ -226,16 +221,9 @@ export default {
       console.log("[API] Saving note:", note.title);
       console.log(`[API] JWT token available: ${jwtToken ? "yes" : "no"}`);
 
-      if (!jwtToken) {
-        console.warn("[API] No JWT token provided for saveNote request");
-        throw new Error("Authentication token missing");
-      }
+      const headers = getAuthHeaders(jwtToken);
 
-      const response = await api.post("/api/notes", note, {
-        headers: {
-          Authorization: `Bearer ${jwtToken}`,
-        },
-      });
+      const response = await api.post("/api/notes", note, { headers });
 
       console.log("[API] Successfully saved note:", response.data.id);
       return response.data;
@@ -257,16 +245,10 @@ export default {
       console.log(`[API] Deleting note: ${noteId}`);
       console.log(`[API] JWT token available: ${jwtToken ? "yes" : "no"}`);
 
-      if (!jwtToken) {
-        console.warn("[API] No JWT token provided for deleteNote request");
-        throw new Error("Authentication token missing");
-      }
+      const headers = getAuthHeaders(jwtToken);
 
       await api.delete(`/api/notes`, {
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${jwtToken}`,
-        },
+        headers,
         data: {
           id: noteId,
           user_id: userId,
@@ -292,12 +274,8 @@ export default {
       console.log(`[API] Processing recording for user: ${userId}`);
       console.log(`[API] JWT token available: ${jwtToken ? "yes" : "no"}`);
 
-      if (!jwtToken) {
-        console.warn(
-          "[API] No JWT token provided for processRecording request"
-        );
-        throw new Error("Authentication token missing");
-      }
+      // Validate token once at the beginning - getAuthHeaders will throw if token is missing
+      getAuthHeaders(jwtToken);
 
       // 1. Upload recording
       console.log("[API] Step 1: Uploading recording...");

@@ -1,20 +1,21 @@
 import React from "react";
 import { createNativeStackNavigator } from "@react-navigation/native-stack";
-import NotesListScreen from "../screens/NotesListScreen";
+import NotesScreen from "../screens/NotesScreen";
 import RecordingScreen from "../screens/RecordingScreen";
 
 // Define the private routes
 export type PrivateStackParamList = {
-  NotesList: undefined;
+  Notes: undefined;
   Recording: undefined;
 };
 
 const Stack = createNativeStackNavigator<PrivateStackParamList>();
 
 export const PrivateStack = () => {
+  console.log("[Navigation] Rendering PrivateStack");
   return (
     <Stack.Navigator
-      initialRouteName="NotesList"
+      initialRouteName="Notes"
       screenOptions={{
         headerShown: true,
         headerStyle: {
@@ -30,8 +31,8 @@ export const PrivateStack = () => {
       }}
     >
       <Stack.Screen
-        name="NotesList"
-        component={NotesListScreen}
+        name="Notes"
+        component={NotesScreen}
         options={{ title: "My Notes" }}
       />
       <Stack.Screen

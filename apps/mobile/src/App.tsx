@@ -19,18 +19,33 @@ import { StatusBar } from "expo-status-bar";
 import { View, Text, ActivityIndicator } from "react-native";
 
 // Import providers and navigation stacks
-import { AuthProvider, useAuth } from "./context/AuthProvider";
+import { AuthProvider } from "./store/authStore";
 import { PublicStack } from "./navigation/PublicStack";
 import { PrivateStack } from "./navigation/PrivateStack";
+import {
+  useIsAuthenticated,
+  useAuthStatus,
+  useIsLoading,
+} from "./store/authStore";
 
 // ────────────────────────────────────────────────────────────────
 // Navigator Switcher component - conditionally renders stacks based on auth state
 // ────────────────────────────────────────────────────────────────
 const NavigationSwitcher = () => {
-  const { session, loading } = useAuth();
+  const isAuthenticated = useIsAuthenticated();
+  const isLoading = useIsLoading();
+  const status = useAuthStatus();
+
+  // Log auth state for debugging - do this first for better debugging
+  console.log("[Navigation] Auth state:", {
+    status,
+    isAuthenticated,
+    isLoading,
+  });
 
   // Show loading screen while checking auth
-  if (loading) {
+  if (isLoading) {
+    console.log("[Navigation] Showing loading screen");
     return (
       <View
         style={{
@@ -47,7 +62,13 @@ const NavigationSwitcher = () => {
   }
 
   // Render the appropriate stack based on authentication state
-  return session ? <PrivateStack /> : <PublicStack />;
+  if (isAuthenticated) {
+    console.log("[Navigation] Showing PrivateStack");
+    return <PrivateStack />;
+  } else {
+    console.log("[Navigation] Showing PublicStack");
+    return <PublicStack />;
+  }
 };
 
 // ────────────────────────────────────────────────────────────────

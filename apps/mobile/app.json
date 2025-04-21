@@ -1,11 +1,11 @@
 {
   "expo": {
     "name": "Trans AI Journaller",
-    "slug": "trans-ai-journaller-mobile",
+    "slug": "trans-ai-journaller",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
-    "userInterfaceStyle": "dark",
+    "userInterfaceStyle": "light",
     "splash": {
       "image": "./assets/splash.png",
       "resizeMode": "contain",
@@ -13,16 +13,29 @@
     },
     "assetBundlePatterns": ["**/*"],
     "ios": {
-      "supportsTablet": true
+      "supportsTablet": true,
+      "bundleIdentifier": "com.t2a.journaller"
     },
     "android": {
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#121212"
-      }
+      },
+      "package": "com.t2a.journaller"
     },
     "web": {
       "favicon": "./assets/favicon.png"
-    }
+    },
+    "scheme": "com.t2a.journaller",
+    "plugins": ["expo-router"],
+    "extra": {
+      "router": {
+        "origin": false
+      },
+      "eas": {
+        "projectId": "d26e917a-19ac-4ceb-be9b-24297318f855"
+      }
+    },
+    "owner": "avini"
   }
 }

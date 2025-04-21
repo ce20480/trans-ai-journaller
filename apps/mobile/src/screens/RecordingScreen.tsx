@@ -10,7 +10,7 @@ import {
 import { Audio } from "expo-av";
 import { MaterialIcons } from "@expo/vector-icons";
 import api from "../services/api";
-import { useAuth } from "../context/AuthProvider";
+import { useAuthStore, useUser } from "../store/authStore";
 
 type RecordingScreenProps = {
   navigation: any;
@@ -32,9 +32,12 @@ export default function RecordingScreen({ navigation }: RecordingScreenProps) {
   const [isProcessing, setIsProcessing] = useState(false);
   const [currentStep, setCurrentStep] = useState<ProcessingStep>("idle");
   const [processingProgress, setProcessingProgress] = useState("");
+  const [recordingUri, setRecordingUri] = useState<string | null>(null);
+  const [showConfirmation, setShowConfirmation] = useState(false);
 
-  // Get user and session from Auth context
-  const { user, session } = useAuth();
+  // Get user and session from zustand store
+  const user = useUser();
+  const session = useAuthStore((state) => state.session);
 
   useEffect(() => {
     // Clean up on unmount
@@ -115,61 +118,9 @@ export default function RecordingScreen({ navigation }: RecordingScreenProps) {
       setRecording(null);
 
       if (uri && user) {
-        setIsProcessing(true);
-
-        try {
-          // Get the JWT token from the session
-          const jwtToken = session?.access_token || null;
-
-          if (!jwtToken) {
-            throw new Error("Authentication token missing");
-          }
-
-          // Process the recording with our API using the user ID from Auth context
-          setCurrentStep("uploading");
-          setProcessingProgress("Uploading recording...");
-
-          await new Promise((resolve) => setTimeout(resolve, 1000)); // Simulate network delay
-
-          setCurrentStep("transcribing");
-          setProcessingProgress("Transcribing audio...");
-
-          await new Promise((resolve) => setTimeout(resolve, 1000)); // Simulate network delay
-
-          setCurrentStep("analyzing");
-          setProcessingProgress("Analyzing with AI...");
-
-          await new Promise((resolve) => setTimeout(resolve, 1000)); // Simulate network delay
-
-          setCurrentStep("saving");
-          setProcessingProgress("Saving your note...");
-
-          const result = await api.processRecording(uri, user.id, jwtToken);
-
-          setIsProcessing(false);
-          setRecordingDuration(0);
-          setCurrentStep("idle");
-
-          // Success! Navigate to Notes List
-          Alert.alert(
-            "Processing Complete",
-            `Your note has been saved with tag: ${result.tag}`,
-            [
-              {
-                text: "View Notes",
-                onPress: () => navigation.navigate("NotesList"),
-              },
-            ]
-          );
-        } catch (error) {
-          setIsProcessing(false);
-          setCurrentStep("idle");
-          console.error("Failed to process recording:", error);
-          Alert.alert(
-            "Processing Error",
-            "There was an error processing your recording. Please try again."
-          );
-        }
+        // Store the URI and show confirmation instead of immediately processing
+        setRecordingUri(uri);
+        setShowConfirmation(true);
       } else if (!user) {
         Alert.alert(
           "Authentication Error",
@@ -180,6 +131,80 @@ export default function RecordingScreen({ navigation }: RecordingScreenProps) {
       console.error("Failed to stop recording:", error);
       Alert.alert("Error", "Failed to save recording. Please try again.");
     }
+  }
+
+  async function processRecording() {
+    if (!recordingUri || !user) return;
+
+    setIsProcessing(true);
+    setShowConfirmation(false);
+
+    try {
+      // Get the JWT token from the session
+      const jwtToken = session?.access_token || null;
+
+      if (!jwtToken) {
+        throw new Error("Authentication token missing");
+      }
+
+      // Process the recording with our API using the user ID
+      setCurrentStep("uploading");
+      setProcessingProgress("Uploading recording...");
+
+      await new Promise((resolve) => setTimeout(resolve, 1000)); // Simulate network delay
+
+      setCurrentStep("transcribing");
+      setProcessingProgress("Transcribing audio...");
+
+      await new Promise((resolve) => setTimeout(resolve, 1000)); // Simulate network delay
+
+      setCurrentStep("analyzing");
+      setProcessingProgress("Analyzing with AI...");
+
+      await new Promise((resolve) => setTimeout(resolve, 1000)); // Simulate network delay
+
+      setCurrentStep("saving");
+      setProcessingProgress("Saving your note...");
+
+      // Ensure proper Authorization header with the token
+      const result = await api.processRecording(
+        recordingUri,
+        user.id,
+        jwtToken
+      );
+
+      setIsProcessing(false);
+      setRecordingDuration(0);
+      setCurrentStep("idle");
+      setRecordingUri(null);
+
+      // Success! Navigate to Notes List
+      Alert.alert(
+        "Processing Complete",
+        `Your note has been saved with tag: ${result.tag}`,
+        [
+          {
+            text: "View Notes",
+            onPress: () => navigation.navigate("Notes"),
+          },
+        ]
+      );
+    } catch (error) {
+      setIsProcessing(false);
+      setCurrentStep("idle");
+      console.error("Failed to process recording:", error);
+      Alert.alert(
+        "Processing Error",
+        "There was an error processing your recording. Please try again."
+      );
+    }
+  }
+
+  function deleteRecording() {
+    setRecordingUri(null);
+    setShowConfirmation(false);
+    setRecordingDuration(0);
+    Alert.alert("Recording Deleted", "Your recording has been discarded.");
   }
 
   // Format seconds into MM:SS
@@ -201,6 +226,46 @@ export default function RecordingScreen({ navigation }: RecordingScreenProps) {
           {currentStep === "saving" && "Saving note..."}
         </Text>
         <Text style={styles.processingSubtext}>{processingProgress}</Text>
+      </View>
+    );
+  }
+
+  // Show confirmation screen after recording is complete
+  if (showConfirmation && recordingUri) {
+    return (
+      <View style={styles.container}>
+        <View style={styles.recordingInfo}>
+          <Text style={styles.title}>Recording Complete</Text>
+          <Text style={styles.subtitle}>
+            Duration: {formatDuration(recordingDuration)}
+          </Text>
+
+          <View style={styles.confirmationContainer}>
+            <Text style={styles.confirmationText}>
+              Would you like to save this recording or try again?
+            </Text>
+          </View>
+        </View>
+
+        <View style={styles.confirmationButtons}>
+          <TouchableOpacity
+            style={[styles.confirmButton, styles.deleteButton]}
+            onPress={deleteRecording}
+          >
+            <MaterialIcons name="delete" size={24} color="white" />
+            <Text style={styles.confirmButtonText}>Discard</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={[styles.confirmButton, styles.saveButton]}
+            onPress={processRecording}
+          >
+            <MaterialIcons name="check" size={24} color="black" />
+            <Text style={[styles.confirmButtonText, { color: "black" }]}>
+              Process
+            </Text>
+          </TouchableOpacity>
+        </View>
       </View>
     );
   }
@@ -311,5 +376,45 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: "#b3b3b3",
     textAlign: "center",
+  },
+  confirmationContainer: {
+    marginTop: 30,
+    backgroundColor: "#262626",
+    padding: 20,
+    borderRadius: 12,
+    width: "100%",
+  },
+  confirmationText: {
+    fontSize: 16,
+    color: "white",
+    textAlign: "center",
+    lineHeight: 24,
+  },
+  confirmationButtons: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    marginBottom: 40,
+    paddingHorizontal: 20,
+    width: "100%",
+  },
+  confirmButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    padding: 16,
+    borderRadius: 12,
+    width: "48%",
+  },
+  deleteButton: {
+    backgroundColor: "#ef4444",
+  },
+  saveButton: {
+    backgroundColor: "#facc15",
+  },
+  confirmButtonText: {
+    fontSize: 16,
+    fontWeight: "bold",
+    color: "white",
+    marginLeft: 8,
   },
 });
