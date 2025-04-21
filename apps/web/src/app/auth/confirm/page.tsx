@@ -26,26 +26,12 @@ export default function AuthConfirmPage() {
       const session = data.session;
 
       if (!session) {
-        setErrorMsg("Couldn’t establish session. Please try again.");
+        setErrorMsg("Couldn't establish session. Please try again.");
         return;
       }
 
-      // Fetch their subscription status
-      const { data: profile } = await supabase
-        .from("profiles")
-        .select("subscription_status")
-        .eq("id", session.user.id)
-        .single();
-
-      const isPaid = profile?.subscription_status === "active";
-      const isAdmin = session.user.user_metadata?.role === "admin";
-
-      // Final redirect
-      if (isAdmin || isPaid) {
-        router.replace("/dashboard");
-      } else {
-        router.replace("/payment");
-      }
+      // Always redirect to dashboard
+      router.replace("/dashboard");
     })();
   }, [router, supabase, params]);
 
