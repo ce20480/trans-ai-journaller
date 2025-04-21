@@ -3,27 +3,87 @@ export const runtime = "nodejs";
 
 import { NextRequest, NextResponse } from "next/server";
 import { createClient as createServerClient } from "@/utils/supabase/server";
+import { createAdminClient } from "@/utils/supabase/admin";
 import { verifyAuth } from "@/utils/supabase/auth";
 import { FREE_NOTES_LIMIT } from "@/utils/constants";
 
 export async function GET(request: NextRequest) {
-  const supabase = await createServerClient();
-
-  // Only verify authentication, not subscription
-  const authResult = await verifyAuth(supabase);
-  if (!authResult.isAuthenticated || !authResult.user) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
-
   const { searchParams } = new URL(request.url);
   const targetUserId = searchParams.get("user_id");
-  if (!targetUserId) {
-    return NextResponse.json({ error: "user_id is required" }, { status: 400 });
+
+  // Get JWT token from headers for mobile requests
+  const authHeader = request.headers.get("authorization");
+  let token = null;
+
+  if (authHeader && authHeader.startsWith("Bearer ")) {
+    token = authHeader.substring(7);
   }
 
-  // Only allow the logged‐in user to fetch *their* notes...
-  if (authResult.user.id !== targetUserId) {
-    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  // Decide which Supabase client to use based on if we have a token
+  let supabase;
+  let userId;
+
+  if (token) {
+    // Mobile flow with JWT token
+    try {
+      const adminClient = createAdminClient();
+
+      // Verify the JWT token and get the user
+      const { data: userData, error: jwtError } =
+        await adminClient.auth.getUser(token);
+
+      if (jwtError || !userData.user) {
+        return NextResponse.json({ error: "Invalid token" }, { status: 401 });
+      }
+
+      userId = userData.user.id;
+      supabase = adminClient; // Use admin client to bypass RLS
+
+      console.log(
+        `✅ Notes API - Mobile request authenticated with JWT for user: ${userId}`
+      );
+
+      // Ensure targetUserId is provided and matches the authenticated user
+      if (!targetUserId) {
+        return NextResponse.json(
+          { error: "user_id is required" },
+          { status: 400 }
+        );
+      }
+
+      if (userId !== targetUserId) {
+        return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+      }
+    } catch (error) {
+      console.error("JWT validation failed", error);
+      return NextResponse.json(
+        { error: "Authentication failed" },
+        { status: 401 }
+      );
+    }
+  } else {
+    // Web flow (existing authentication)
+    supabase = await createServerClient();
+
+    // Only verify authentication, not subscription
+    const authResult = await verifyAuth(supabase);
+    if (!authResult.isAuthenticated || !authResult.user) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
+    userId = authResult.user.id;
+
+    if (!targetUserId) {
+      return NextResponse.json(
+        { error: "user_id is required" },
+        { status: 400 }
+      );
+    }
+
+    // Only allow the logged‐in user to fetch *their* notes...
+    if (userId !== targetUserId) {
+      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    }
   }
 
   // Fetch notes
@@ -57,7 +117,9 @@ export async function GET(request: NextRequest) {
   }
 
   // Check if user is admin from auth metadata
-  const isAdmin = authResult.user.user_metadata?.role === "admin";
+  const isAdmin = token
+    ? false
+    : (await verifyAuth(supabase)).user?.user_metadata?.role === "admin";
 
   return NextResponse.json({
     data: notes,
@@ -76,11 +138,50 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
   console.log("🔍 Notes API - POST request received");
 
-  // 1) Get authenticated user
-  const supabase = await createServerClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  // Get JWT token from headers for mobile requests
+  const authHeader = request.headers.get("authorization");
+  let token = null;
+  let user = null;
+  let supabase;
+
+  if (authHeader && authHeader.startsWith("Bearer ")) {
+    token = authHeader.substring(7);
+
+    // Mobile flow with JWT token
+    try {
+      const adminClient = createAdminClient();
+
+      // Verify the JWT token and get the user
+      const { data: userData, error: jwtError } =
+        await adminClient.auth.getUser(token);
+
+      if (jwtError || !userData.user) {
+        console.log("❌ Notes API - Invalid JWT token");
+        return NextResponse.json({ error: "Invalid token" }, { status: 401 });
+      }
+
+      user = userData.user;
+      supabase = adminClient; // Use admin client to bypass RLS
+
+      console.log(
+        `✅ Notes API - Mobile request authenticated with JWT for user: ${user.id}`
+      );
+    } catch (error) {
+      console.error("JWT validation failed", error);
+      return NextResponse.json(
+        { error: "Authentication failed" },
+        { status: 401 }
+      );
+    }
+  } else {
+    // 1) Get authenticated user (web flow)
+    supabase = await createServerClient();
+    const {
+      data: { user: authUser },
+    } = await supabase.auth.getUser();
+
+    user = authUser;
+  }
 
   if (!user) {
     console.log("❌ Notes API - Unauthorized: No user found");
@@ -124,7 +225,7 @@ export async function POST(request: NextRequest) {
   // 4) Check if free user has reached note limit
   const freeNotesCount = userProfile?.free_notes_count ?? 0;
   const isSubscribed = userProfile?.subscription_status === "active";
-  const isAdmin = user.user_metadata?.role === "admin";
+  const isAdmin = token ? false : user.user_metadata?.role === "admin";
 
   console.log(`📊 Notes API - User status:
     - Free notes count: ${freeNotesCount}
@@ -216,12 +317,47 @@ export async function POST(request: NextRequest) {
 }
 
 export async function DELETE(request: NextRequest) {
-  const supabase = await createServerClient();
+  // Get JWT token from headers for mobile requests
+  const authHeader = request.headers.get("authorization");
+  let token = null;
+  let userId = null;
+  let supabase;
 
-  // Only verify authentication, not subscription
-  const authResult = await verifyAuth(supabase);
-  if (!authResult.isAuthenticated || !authResult.user) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  if (authHeader && authHeader.startsWith("Bearer ")) {
+    token = authHeader.substring(7);
+
+    // Mobile flow with JWT token
+    try {
+      const adminClient = createAdminClient();
+
+      // Verify the JWT token and get the user
+      const { data: userData, error: jwtError } =
+        await adminClient.auth.getUser(token);
+
+      if (jwtError || !userData.user) {
+        return NextResponse.json({ error: "Invalid token" }, { status: 401 });
+      }
+
+      userId = userData.user.id;
+      supabase = adminClient; // Use admin client to bypass RLS
+    } catch (error) {
+      console.error("JWT validation failed", error);
+      return NextResponse.json(
+        { error: "Authentication failed" },
+        { status: 401 }
+      );
+    }
+  } else {
+    // Web flow (existing authentication)
+    supabase = await createServerClient();
+
+    // Only verify authentication, not subscription
+    const authResult = await verifyAuth(supabase);
+    if (!authResult.isAuthenticated || !authResult.user) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
+    userId = authResult.user.id;
   }
 
   const { id, user_id } = await request.json();
@@ -233,7 +369,7 @@ export async function DELETE(request: NextRequest) {
   }
 
   // Only allow the logged-in user to delete their own notes
-  if (authResult.user.id !== user_id) {
+  if (userId !== user_id) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 
