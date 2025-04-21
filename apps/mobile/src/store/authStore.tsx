@@ -216,7 +216,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     try {
       // For development with Expo, use the Expo development URL
       // This must be added to the allowed redirect URLs in Supabase Dashboard
-      const redirectTo = "com.t2a.journaller://--/auth/callback";
+      const redirectTo = "com.t2a.journaller://auth/callback";
       // Go to Authentication > URL Configuration
       // const redirectTo = "exp://192.168.0.133:8081/--/auth/callback";
 
