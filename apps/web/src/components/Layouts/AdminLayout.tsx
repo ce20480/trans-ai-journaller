@@ -1,12 +1,16 @@
 // components/AdminLayout.tsx
 "use client";
 
-import { ReactNode, useState, useEffect } from "react";
+import React, { useState, useEffect } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import LogoutButton from "@/components/LogoutButton";
 
-export default function AdminLayout({ children }: { children: ReactNode }) {
+export default function AdminLayout({
+  children,
+}: {
+  children: React.ReactNode;
+}) {
   const pathname = usePathname();
   const [mobileOpen, setMobileOpen] = useState(false);
 
@@ -92,16 +96,13 @@ function NavLink({
   children: React.ReactNode;
   isActive: boolean;
 }) {
+  const className = isActive
+    ? "block px-3 py-2 rounded-md transition-colors bg-[#facc15] text-black"
+    : "block px-3 py-2 rounded-md transition-colors text-[#b3b3b3] hover:bg-[#262626] hover:text-white";
+
   return (
-    <Link
-      href={href}
-      className={`block px-3 py-2 rounded-md transition-colors ${
-        isActive
-          ? "bg-[#facc15] text-black"
-          : "text-[#b3b3b3] hover:bg-[#262626] hover:text-white"
-      }`}
-    >
-      {children}
+    <Link href={href}>
+      <div className={className}>{children}</div>
     </Link>
   );
 }
