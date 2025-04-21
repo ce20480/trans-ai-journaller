@@ -54,7 +54,7 @@ export async function GET(request: NextRequest) {
     if (profile?.subscription_status === "active") {
       return NextResponse.redirect(new URL("/dashboard", request.url));
     } else {
-      // Free users allowed 3 notes
+      // Free users allowed 50 notes
       return NextResponse.redirect(new URL("/dashboard", request.url));
     }
   } catch (error) {

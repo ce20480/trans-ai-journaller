@@ -56,7 +56,7 @@ export async function login(formData: FormData) {
         revalidatePath("/", "layout");
         redirect("/dashboard");
       } else {
-        console.log("Now authenticated, free users allowed 3 notes");
+        console.log("Now authenticated, free users allowed 50 notes");
         revalidatePath("/", "layout");
         redirect("/dashboard");
       }

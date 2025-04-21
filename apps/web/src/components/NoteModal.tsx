@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { Note } from "./NotesList";
 
 interface NoteModalProps {
@@ -37,6 +37,26 @@ export default function NoteModal({
     setIsEditing(false);
   }, [note]);
 
+  const handleClose = useCallback(() => {
+    if (isSaving) return;
+
+    // Prompt if there are unsaved changes in edit mode
+    if (
+      isEditing &&
+      (title !== note?.title ||
+        content !== note?.content ||
+        tag !== (note?.tag || ""))
+    ) {
+      if (
+        confirm("You have unsaved changes. Are you sure you want to close?")
+      ) {
+        onClose();
+      }
+    } else {
+      onClose();
+    }
+  }, [isEditing, isSaving, note, title, content, tag, onClose]);
+
   // Handle click outside to close
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
@@ -55,7 +75,7 @@ export default function NoteModal({
     return () => {
       document.removeEventListener("mousedown", handleClickOutside);
     };
-  }, [isOpen]);
+  }, [isOpen, handleClose]);
 
   // Handle escape key to close
   useEffect(() => {
@@ -72,27 +92,7 @@ export default function NoteModal({
     return () => {
       document.removeEventListener("keydown", handleEscKey);
     };
-  }, [isOpen]);
-
-  const handleClose = () => {
-    if (isSaving) return;
-
-    // Prompt if there are unsaved changes in edit mode
-    if (
-      isEditing &&
-      (title !== note?.title ||
-        content !== note?.content ||
-        tag !== (note?.tag || ""))
-    ) {
-      if (
-        confirm("You have unsaved changes. Are you sure you want to close?")
-      ) {
-        onClose();
-      }
-    } else {
-      onClose();
-    }
-  };
+  }, [isOpen, handleClose]);
 
   const handleSave = async () => {
     if (!note || !onSave) return;
