@@ -53,8 +53,8 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // 4b) Rare immediate session case → go to payment
-    return NextResponse.json({ redirect: "/payment" }, { status: 200 });
+    // 4b) Rare immediate session case → go to dashboard instead of payment
+    return NextResponse.json({ redirect: "/dashboard" }, { status: 200 });
   } catch (err) {
     console.error("Signup failed:", err);
     return NextResponse.json(

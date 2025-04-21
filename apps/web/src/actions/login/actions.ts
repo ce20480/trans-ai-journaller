@@ -139,8 +139,8 @@ export async function signup(formData: FormData) {
   // Revalidate all pages that might show user state
   revalidatePath("/", "layout");
 
-  // Redirect to payment page
-  redirect("/payment");
+  // Redirect to dashboard page instead of payment
+  redirect("/dashboard");
 }
 
 export async function signout(): Promise<undefined | { error: string }> {
