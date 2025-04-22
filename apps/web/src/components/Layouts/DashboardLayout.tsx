@@ -142,26 +142,11 @@ export default function DashboardLayout({
                 Dashboard
               </NavLink>
               <NavLink
-                href="/dashboard/waitlist"
-                isActive={pathname === "/dashboard/waitlist"}
-                icon={
-                  <svg
-                    className="w-5 h-5"
-                    fill="none"
-                    viewBox="0 0 24 24"
-                    stroke="currentColor"
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={2}
-                      d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z"
-                    />
-                  </svg>
-                }
+                href="/dashboard/notes"
+                isActive={pathname === "/dashboard/notes"}
                 collapsed={isSidebarCollapsed}
               >
-                Waitlist
+                My Notes
               </NavLink>
               <hr className="border-white/10 my-4" />
             </nav>
@@ -218,25 +203,10 @@ export default function DashboardLayout({
                   Dashboard
                 </NavLink>
                 <NavLink
-                  href="/dashboard/waitlist"
-                  isActive={pathname === "/dashboard/waitlist"}
-                  icon={
-                    <svg
-                      className="w-5 h-5"
-                      fill="none"
-                      viewBox="0 0 24 24"
-                      stroke="currentColor"
-                    >
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        strokeWidth={2}
-                        d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z"
-                      />
-                    </svg>
-                  }
+                  href="/dashboard/notes"
+                  isActive={pathname === "/dashboard/notes"}
                 >
-                  Waitlist
+                  My Notes
                 </NavLink>
                 <hr className="border-white/10 my-4" />
                 <div className="flex items-center">
