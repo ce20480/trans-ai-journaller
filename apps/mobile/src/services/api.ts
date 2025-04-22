@@ -21,7 +21,7 @@ if (expoExtra?.apiUrl) {
 } else if (manifestExtra?.apiUrl) {
   baseURL = manifestExtra.apiUrl || "https://www.thoughts2action.com";
 } else {
-  baseURL = "https://www.thoughts2action.com";
+  baseURL = "http://localhost:3000";
 }
 const api = axios.create({
   baseURL,

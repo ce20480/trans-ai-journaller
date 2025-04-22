@@ -102,7 +102,7 @@ export default function NotesScreen({ navigation }: { navigation: any }) {
   return (
     <View style={styles.container}>
       <View style={styles.header}>
-        <Text style={styles.headerTitle}>My Journal</Text>
+        <Text style={styles.headerTitle}>Thoughts2Action</Text>
         <TouchableOpacity style={styles.logoutButton} onPress={handleLogout}>
           <Text style={styles.logoutButtonText}>Logout</Text>
         </TouchableOpacity>
