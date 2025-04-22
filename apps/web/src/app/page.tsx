@@ -1,11 +1,15 @@
 import Link from "next/link";
 import Image from "next/image";
-import WaitlistSection from "@/components/WaitlistSection";
+import FeatureListSection from "@/components/FeatureListSection";
 import VideoSection from "@/components/VideoSection";
+import GoogleOneTap from "@/components/GoogleOneTap";
 
 export default function Home() {
   return (
     <div className="min-h-screen flex flex-col bg-[#010101] text-white">
+      {/* Google One Tap integration */}
+      <GoogleOneTap redirect="/dashboard" />
+
       {/* Hero Section */}
       <section className="py-20 flex-grow">
         <div className="container mx-auto px-6">
@@ -48,7 +52,7 @@ export default function Home() {
               </p>
               <div className="flex flex-col sm:flex-row gap-4 items-start">
                 <Link
-                  href="#join-waitlist"
+                  href="/register"
                   className="bg-[#facc15] hover:bg-[#fde047] text-black px-8 py-3 rounded-lg text-lg font-semibold inline-flex items-center transition-all shadow-lg hover:shadow-[#facc15]/30 hover:translate-y-[-2px]"
                 >
                   <svg
@@ -64,9 +68,15 @@ export default function Home() {
                       d="M13 10V3L4 14h7v7l9-11h-7z"
                     />
                   </svg>
-                  Join Waitlist
+                  Sign Up Now
                 </Link>
-                <div className="text-[#b3b3b3] text-sm mt-2">
+                <Link
+                  href="/login"
+                  className="border border-white/20 hover:bg-white/10 text-white px-8 py-3 rounded-lg text-lg font-semibold inline-flex items-center transition-all"
+                >
+                  Login
+                </Link>
+                <div className="text-[#b3b3b3] text-sm mt-2 sm:mt-4">
                   <span className="text-[#facc15]">5+</span> ideas captured by
                   our users today
                 </div>
@@ -195,9 +205,9 @@ export default function Home() {
         </div>
       </section>
 
-      {/* Waitlist Section */}
-      <div id="join-waitlist">
-        <WaitlistSection />
+      {/* Feature List Section */}
+      <div id="feature-list">
+        <FeatureListSection />
       </div>
 
       {/* Final CTA Section */}
@@ -215,7 +225,7 @@ export default function Home() {
               </p>
               <div className="pt-4">
                 <Link
-                  href="#join-waitlist"
+                  href="/register"
                   className="bg-[#facc15] hover:bg-[#fde047] text-black px-8 py-3 rounded-lg text-lg font-semibold inline-flex items-center transition-all shadow-lg hover:shadow-[#facc15]/30 hover:translate-y-[-2px]"
                 >
                   <svg
@@ -231,7 +241,7 @@ export default function Home() {
                       d="M13 10V3L4 14h7v7l9-11h-7z"
                     />
                   </svg>
-                  Join Waitlist
+                  Sign Up Now
                 </Link>
               </div>
             </div>

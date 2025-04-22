@@ -1,64 +1,39 @@
+import { NextResponse } from "next/server";
 import { createClient } from "@/utils/supabase/server";
-import { NextRequest, NextResponse } from "next/server";
 
-export async function GET(request: NextRequest) {
-  try {
-    const requestUrl = new URL(request.url);
-    const code = requestUrl.searchParams.get("code");
-    // Note: Server-side requests cannot access URL fragments
+export async function GET(request: Request) {
+  const url = new URL(request.url);
+  const { searchParams } = url;
+  const code = searchParams.get("code");
+  // Default to dashboard, but allow for a custom redirect
+  const next = searchParams.get("next") ?? "/dashboard";
 
+  console.log(
+    `Auth callback received with code: ${code ? "present" : "missing"}`
+  );
+  console.log(`Redirect destination: ${next}`);
+
+  if (code) {
     const supabase = await createClient();
-    let error = null;
+    const { error } = await supabase.auth.exchangeCodeForSession(code);
 
-    // Handle standard code flow
-    if (code) {
-      // Exchange code for session
-      const result = await supabase.auth.exchangeCodeForSession(code);
-      error = result.error;
-    }
-    // For fragment URLs, client-side JS will need to handle this
-    // Server cannot access URL fragments (they're not sent to the server)
-
-    if (error) {
-      console.error("Auth callback error:", error);
-      return NextResponse.redirect(
-        new URL(
-          `/login?error=${encodeURIComponent(error.message)}`,
-          request.url
-        )
+    if (!error) {
+      // Get the origin from the request URL
+      const origin = url.origin;
+      console.log(
+        `Authentication successful, redirecting to: ${origin}${next}`
       );
+
+      // Simple redirect - will work in both development and production
+      return NextResponse.redirect(`${origin}${next}`);
     }
 
-    // Get user to determine redirect location
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
-
-    if (!user) {
-      return NextResponse.redirect(new URL("/login", request.url));
-    }
-
-    // Check if user is admin and redirect accordingly
-    if (user.user_metadata?.role === "admin") {
-      return NextResponse.redirect(new URL("/admin", request.url));
-    }
-
-    // Get subscription status
-    const { data: profile } = await supabase
-      .from("profiles")
-      .select("subscription_status")
-      .eq("id", user.id)
-      .single();
-
-    // Redirect based on subscription status
-    if (profile?.subscription_status === "active") {
-      return NextResponse.redirect(new URL("/dashboard", request.url));
-    } else {
-      // Free users allowed 50 notes
-      return NextResponse.redirect(new URL("/dashboard", request.url));
-    }
-  } catch (error) {
-    console.error("Auth callback error:", error);
-    return NextResponse.redirect(new URL("/login", request.url));
+    console.error("Error exchanging code for session:", error);
   }
+
+  // Redirect to login page with error
+  console.error("Authentication failed, redirecting to login page");
+  return NextResponse.redirect(
+    new URL("/login?error=Authentication%20failed", request.url)
+  );
 }

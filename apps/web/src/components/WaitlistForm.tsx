@@ -62,7 +62,7 @@ export default function WaitlistForm() {
         body: JSON.stringify({
           email: email.trim().toLowerCase(),
           name: name || undefined,
-          source: "landing_page",
+          source: "feature_list",
         }),
       });
 
@@ -71,15 +71,14 @@ export default function WaitlistForm() {
       if (!response.ok) throw new Error(data.error || "Something went wrong");
 
       setIsSuccess(true);
-      setMessage(data.message || "Thanks for joining our waitlist!");
+      setMessage(data.message || "Thanks for subscribing to feature updates!");
       setEmail("");
       setName("");
       setValidationErrors({});
     } catch (error) {
       setIsError(true);
       setMessage(
-        (error as Error).message ||
-          "Failed to join the waitlist. Please try again."
+        (error as Error).message || "Failed to subscribe. Please try again."
       );
     } finally {
       setIsSubmitting(false);
@@ -92,7 +91,7 @@ export default function WaitlistForm() {
         <div className="bg-[#262626] p-6 rounded-lg shadow-md text-center">
           <div className="text-[#facc15] mb-2 text-xl">✓</div>
           <h3 className="text-white text-lg font-semibold mb-2">
-            You&apos;re on the list!
+            You&apos;re subscribed!
           </h3>
           <p className="text-[#b3b3b3]">{message}</p>
         </div>
@@ -136,10 +135,10 @@ export default function WaitlistForm() {
             {isSubmitting ? (
               <>
                 <span className="mr-2 animate-spin">↻</span>
-                Joining...
+                Subscribing...
               </>
             ) : (
-              "Join Waitlist"
+              "Subscribe to Updates"
             )}
           </button>
 

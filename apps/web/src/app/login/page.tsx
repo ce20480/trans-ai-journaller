@@ -4,6 +4,8 @@ import { useState } from "react";
 import Link from "next/link";
 import { login } from "@/actions/login/actions";
 import { useActionState } from "react";
+import GoogleOneTap from "@/components/GoogleOneTap";
+import { createClient } from "@/utils/supabase/client";
 
 export default function Login() {
   const [formState, formAction, isPending] = useActionState(
@@ -18,6 +20,8 @@ export default function Login() {
 
   return (
     <div className="min-h-screen flex flex-col justify-center items-center bg-[#010101] p-4">
+      <GoogleOneTap redirect="/dashboard" />
+
       <div className="w-full max-w-md p-8 bg-[#1a1a1a] rounded-xl shadow-2xl">
         <div className="text-center mb-8">
           <Link href="/" className="inline-block mb-4">
@@ -136,14 +140,29 @@ export default function Login() {
           <div className="mt-6">
             <button
               onClick={async () => {
+                // Use the browser Supabase client for OAuth to respect redirectTo
                 try {
-                  const response = await fetch("/api/auth/google", {
-                    method: "POST",
+                  const supabase = createClient();
+                  const urlParams = new URLSearchParams(window.location.search);
+                  const next = urlParams.get("redirect") || "/dashboard";
+                  const redirectTo = `${window.location.origin}/api/auth/callback?next=${encodeURIComponent(next)}`;
+                  const { data, error } = await supabase.auth.signInWithOAuth({
+                    provider: "google",
+                    options: {
+                      redirectTo,
+                      queryParams: {
+                        access_type: "offline",
+                        prompt: "consent",
+                      },
+                    },
                   });
-                  const data = await response.json();
-                  window.location.href = data.url;
-                } catch (error) {
-                  console.error("Google sign-in error:", error);
+                  if (error) {
+                    console.error("Google OAuth error:", error);
+                  } else if (data.url) {
+                    window.location.href = data.url;
+                  }
+                } catch (err) {
+                  console.error("Google sign-in error:", err);
                 }
               }}
               className="w-full flex items-center justify-center py-3 px-4 gap-3 border border-[#373737] rounded-lg bg-[#262626] hover:bg-[#333333] transition-colors duration-200 text-white"

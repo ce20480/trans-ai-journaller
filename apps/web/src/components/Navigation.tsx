@@ -87,21 +87,21 @@ export default function Navigation({ user }: { user: User | null }) {
             <>
               <Link
                 href="/register"
-                className="text-[#b3b3b3] hover:text-[#facc15] transition-colors"
+                className="bg-[#facc15] hover:bg-[#fde047] text-black px-5 py-2 rounded-full text-sm font-medium transition-colors"
               >
                 Sign Up
               </Link>
               <Link
                 href="/login"
-                className="text-[#b3b3b3] hover:text-[#facc15] transition-colors"
+                className="text-white border border-white/20 hover:bg-white/10 px-5 py-2 rounded-full text-sm font-medium transition-colors"
               >
                 Login
               </Link>
               <Link
-                href="#join-waitlist"
-                className="bg-[#facc15] hover:bg-[#fde047] text-black px-5 py-2 rounded-full text-sm font-medium transition-colors"
+                href="#feature-list"
+                className="text-[#b3b3b3] hover:text-[#facc15] transition-colors"
               >
-                Join Waitlist
+                Feature List
               </Link>
             </>
           )}
@@ -206,13 +206,27 @@ export default function Navigation({ user }: { user: User | null }) {
                 >
                   Login
                 </Link>
+                <Link
+                  href="#feature-list"
+                  className="block py-2 text-[#b3b3b3] hover:text-[#facc15] transition-colors"
+                  onClick={() => setIsMobileMenuOpen(false)}
+                >
+                  Feature List
+                </Link>
                 <div className="pt-2">
                   <Link
-                    href="#join-waitlist"
-                    className="block w-full text-center bg-[#facc15] hover:bg-[#fde047] text-black px-5 py-2 rounded-full text-sm font-medium transition-colors"
+                    href="/register"
+                    className="block w-full text-center bg-[#facc15] hover:bg-[#fde047] text-black px-5 py-2 rounded-full text-sm font-medium transition-colors mb-2"
                     onClick={() => setIsMobileMenuOpen(false)}
                   >
-                    Join Waitlist
+                    Sign Up
+                  </Link>
+                  <Link
+                    href="/login"
+                    className="block w-full text-center border border-white/20 hover:bg-white/10 text-white px-5 py-2 rounded-full text-sm font-medium transition-colors"
+                    onClick={() => setIsMobileMenuOpen(false)}
+                  >
+                    Login
                   </Link>
                 </div>
               </>
