@@ -194,8 +194,8 @@ export default function LoginScreen({ navigation }: LoginScreenProps) {
       style={styles.container}
     >
       <View style={styles.innerContainer}>
-        <Text style={styles.title}>Trans AI Journaller</Text>
-        <Text style={styles.subtitle}>Your personal AI-powered journal</Text>
+        <Text style={styles.title}>Thoughts2Action</Text>
+        <Text style={styles.subtitle}>Your personal T2A-powered journal</Text>
 
         <View style={styles.form}>
           <View style={styles.inputContainer}>

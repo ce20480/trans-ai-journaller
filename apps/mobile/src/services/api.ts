@@ -5,21 +5,24 @@ import * as FileSystem from "expo-file-system";
 import { Platform } from "react-native";
 
 // Set the API base URL based on environment and platform
-const defaultHost = Platform.OS === "android" ? "10.0.2.2" : "localhost";
-const defaultApiUrl = `http://${defaultHost}:3000`;
+// const defaultHost = Platform.OS === "android" ? "10.0.2.2" : "localhost";
+// const defaultApiUrl = `http://${defaultHost}:3000`;
 // Read API URL from EAS expoConfig or from Expo Go manifest2/manifest, then default
 const expoExtra = Constants.expoConfig?.extra as { apiUrl?: string };
 const manifest2Extra = (Constants.manifest2 as any)?.extra as {
   apiUrl?: string;
 };
 const manifestExtra = (Constants.manifest as any)?.extra as { apiUrl?: string };
-// const baseURL =
-//   expoExtra?.apiUrl ||
-//   manifest2Extra?.apiUrl ||
-//   manifestExtra?.apiUrl ||
-//   defaultApiUrl;
-const baseURL = "https://www.thoughts2action.com";
-
+let baseURL;
+if (expoExtra?.apiUrl) {
+  baseURL = expoExtra.apiUrl || "https://www.thoughts2action.com";
+} else if (manifest2Extra?.apiUrl) {
+  baseURL = manifest2Extra.apiUrl || "https://www.thoughts2action.com";
+} else if (manifestExtra?.apiUrl) {
+  baseURL = manifestExtra.apiUrl || "https://www.thoughts2action.com";
+} else {
+  baseURL = "http://localhost:3000";
+}
 const api = axios.create({
   baseURL,
   timeout: 30000, // 30 seconds for requests

@@ -1,8 +1,8 @@
 {
   "expo": {
-    "name": "Trans AI Journaller",
-    "slug": "trans-ai-journaller",
-    "version": "1.0.0",
+    "name": "Thoughts2Action",
+    "slug": "thoughts2action",
+    "version": "1.0.1",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
@@ -15,7 +15,7 @@
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.t2a.journaller",
-      "buildNumber": "1",
+      "buildNumber": "2",
       "infoPlist": {
         "ITSAppUsesNonExemptEncryption": false
       }
@@ -39,7 +39,7 @@
         "origin": false
       },
       "eas": {
-        "projectId": "d26e917a-19ac-4ceb-be9b-24297318f855"
+        "projectId": "ffac6b82-b80c-4c8f-b7a5-27568572b3bd"
       }
     },
     "owner": "avini"
