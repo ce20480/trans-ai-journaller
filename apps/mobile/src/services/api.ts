@@ -18,7 +18,7 @@ const manifestExtra = (Constants.manifest as any)?.extra as { apiUrl?: string };
 //   manifest2Extra?.apiUrl ||
 //   manifestExtra?.apiUrl ||
 //   defaultApiUrl;
-const baseURL = "www.thoughts2action.com";
+const baseURL = "https://www.thoughts2action.com";
 
 const api = axios.create({
   baseURL,
