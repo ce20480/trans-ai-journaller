@@ -4,93 +4,44 @@ export const runtime = "nodejs";
 import { NextRequest, NextResponse } from "next/server";
 import { createClient as createServerClient } from "@/utils/supabase/server";
 import { createAdminClient } from "@/utils/supabase/admin";
-import { verifyAuth } from "@/utils/supabase/auth";
 import { FREE_NOTES_LIMIT } from "@/utils/constants";
 
 export async function GET(request: NextRequest) {
-  const { searchParams } = new URL(request.url);
-  const targetUserId = searchParams.get("user_id");
-
-  // Get JWT token from headers for mobile requests
-  const authHeader = request.headers.get("authorization");
-  let token = null;
-
-  if (authHeader && authHeader.startsWith("Bearer ")) {
-    token = authHeader.substring(7);
-  }
-
-  // Decide which Supabase client to use based on if we have a token
+  // 1️⃣ Derive authenticated user via JWT or session cookie
+  const authHeader = request.headers.get("authorization") || "";
   let supabase;
-  let userId;
-
-  if (token) {
-    // Mobile flow with JWT token
-    try {
-      const adminClient = createAdminClient();
-
-      // Verify the JWT token and get the user
-      const { data: userData, error: jwtError } =
-        await adminClient.auth.getUser(token);
-
-      if (jwtError || !userData.user) {
-        return NextResponse.json({ error: "Invalid token" }, { status: 401 });
-      }
-
-      userId = userData.user.id;
-      supabase = adminClient; // Use admin client to bypass RLS
-
-      console.log(
-        `✅ Notes API - Mobile request authenticated with JWT for user: ${userId}`
-      );
-
-      // Ensure targetUserId is provided and matches the authenticated user
-      if (!targetUserId) {
-        return NextResponse.json(
-          { error: "user_id is required" },
-          { status: 400 }
-        );
-      }
-
-      if (userId !== targetUserId) {
-        return NextResponse.json({ error: "Forbidden" }, { status: 403 });
-      }
-    } catch (error) {
-      console.error("JWT validation failed", error);
-      return NextResponse.json(
-        { error: "Authentication failed" },
-        { status: 401 }
-      );
+  let user;
+  if (authHeader.startsWith("Bearer ")) {
+    const token = authHeader.substring(7);
+    const adminClient = createAdminClient();
+    const {
+      data: { user: mobileUser },
+      error: jwtError,
+    } = await adminClient.auth.getUser(token);
+    if (jwtError || !mobileUser) {
+      return NextResponse.json({ error: "Invalid token" }, { status: 401 });
     }
+    supabase = adminClient;
+    user = mobileUser;
   } else {
-    // Web flow (existing authentication)
-    supabase = await createServerClient();
-
-    // Only verify authentication, not subscription
-    const authResult = await verifyAuth(supabase);
-    if (!authResult.isAuthenticated || !authResult.user) {
+    const serverClient = await createServerClient();
+    const {
+      data: { user: webUser },
+      error: authError,
+    } = await serverClient.auth.getUser();
+    if (authError || !webUser) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
-
-    userId = authResult.user.id;
-
-    if (!targetUserId) {
-      return NextResponse.json(
-        { error: "user_id is required" },
-        { status: 400 }
-      );
-    }
-
-    // Only allow the logged‐in user to fetch *their* notes...
-    if (userId !== targetUserId) {
-      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
-    }
+    supabase = serverClient;
+    user = webUser;
   }
+  const userId = user.id;
 
   // Fetch notes
   const { data: notes, error: notesError } = await supabase
     .from("notes")
     .select("*")
-    .eq("user_id", targetUserId)
+    .eq("user_id", userId)
     .order("created_at", { ascending: false });
 
   if (notesError) {
@@ -105,7 +56,7 @@ export async function GET(request: NextRequest) {
   const { data: userProfile, error: profileError } = await supabase
     .from("profiles")
     .select("subscription_status, free_notes_count")
-    .eq("id", targetUserId)
+    .eq("id", userId)
     .single();
 
   if (profileError) {
@@ -117,9 +68,7 @@ export async function GET(request: NextRequest) {
   }
 
   // Check if user is admin from auth metadata
-  const isAdmin = token
-    ? false
-    : (await verifyAuth(supabase)).user?.user_metadata?.role === "admin";
+  const isAdmin = user.user_metadata?.role === "admin";
 
   return NextResponse.json({
     data: notes,
@@ -317,64 +266,48 @@ export async function POST(request: NextRequest) {
 }
 
 export async function DELETE(request: NextRequest) {
-  // Get JWT token from headers for mobile requests
-  const authHeader = request.headers.get("authorization");
-  let token = null;
-  let userId = null;
+  // 1️⃣ Authenticate user via JWT or session cookie
+  const authHeader = request.headers.get("authorization") || "";
   let supabase;
-
-  if (authHeader && authHeader.startsWith("Bearer ")) {
-    token = authHeader.substring(7);
-
-    // Mobile flow with JWT token
-    try {
-      const adminClient = createAdminClient();
-
-      // Verify the JWT token and get the user
-      const { data: userData, error: jwtError } =
-        await adminClient.auth.getUser(token);
-
-      if (jwtError || !userData.user) {
-        return NextResponse.json({ error: "Invalid token" }, { status: 401 });
-      }
-
-      userId = userData.user.id;
-      supabase = adminClient; // Use admin client to bypass RLS
-    } catch (error) {
-      console.error("JWT validation failed", error);
-      return NextResponse.json(
-        { error: "Authentication failed" },
-        { status: 401 }
-      );
+  let user;
+  if (authHeader.startsWith("Bearer ")) {
+    const token = authHeader.substring(7);
+    const adminClient = createAdminClient();
+    const {
+      data: { user: mobileUser },
+      error: jwtError,
+    } = await adminClient.auth.getUser(token);
+    if (jwtError || !mobileUser) {
+      return NextResponse.json({ error: "Invalid token" }, { status: 401 });
     }
+    supabase = adminClient;
+    user = mobileUser;
   } else {
-    // Web flow (existing authentication)
-    supabase = await createServerClient();
-
-    // Only verify authentication, not subscription
-    const authResult = await verifyAuth(supabase);
-    if (!authResult.isAuthenticated || !authResult.user) {
+    const serverClient = await createServerClient();
+    const {
+      data: { user: webUser },
+      error: authError,
+    } = await serverClient.auth.getUser();
+    if (authError || !webUser) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
+    supabase = serverClient;
+    user = webUser;
+  }
+  const userId = user.id;
 
-    userId = authResult.user.id;
+  // 2️⃣ Parse note ID from request
+  const { id } = await request.json();
+  if (!id) {
+    return NextResponse.json({ error: "id is required" }, { status: 400 });
   }
 
-  const { id, user_id } = await request.json();
-  if (!id || !user_id) {
-    return NextResponse.json(
-      { error: "id and user_id required" },
-      { status: 400 }
-    );
-  }
-
-  // Only allow the logged-in user to delete their own notes
-  if (userId !== user_id) {
-    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
-  }
-
-  // Delete in one go
-  const { error } = await supabase.from("notes").delete().eq("id", id);
+  // 3️⃣ Delete only the note belonging to this user
+  const { error } = await supabase
+    .from("notes")
+    .delete()
+    .eq("id", id)
+    .eq("user_id", userId);
   if (error) {
     console.error("notes delete failed", error);
     return NextResponse.json(

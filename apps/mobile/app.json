@@ -34,6 +34,7 @@
     "scheme": "com.t2a.journaller",
     "plugins": ["expo-router"],
     "extra": {
+      "apiUrl": "https://www.thoughts2action.com",
       "router": {
         "origin": false
       },

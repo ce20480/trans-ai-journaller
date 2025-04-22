@@ -11,6 +11,7 @@ import {
 } from "react-native";
 import { useAuthStore, useAuthUser } from "../store/authStore";
 import supabase from "../supabaseClient";
+import { useIsFocused } from "@react-navigation/native";
 
 type Note = {
   id: string;
@@ -29,16 +30,17 @@ export default function NotesScreen({ navigation }: { navigation: any }) {
   // Get user from auth store
   const user = useAuthUser();
   const { signOut } = useAuthStore();
+  const isFocused = useIsFocused();
 
   useEffect(() => {
-    if (!user) {
-      console.error("No user found in Notes screen");
-      return;
+    if (isFocused && user) {
+      console.log(
+        "[NotesScreen] Screen focused, refetching notes for user:",
+        user.id
+      );
+      fetchNotes();
     }
-
-    console.log("[NotesScreen] Fetching notes for user:", user.id);
-    fetchNotes();
-  }, [user]);
+  }, [isFocused, user]);
 
   const fetchNotes = async () => {
     setIsLoading(true);
