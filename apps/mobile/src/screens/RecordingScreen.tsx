@@ -9,7 +9,7 @@ import {
 } from "react-native";
 import { Audio } from "expo-av";
 import { MaterialIcons } from "@expo/vector-icons";
-import api from "../services/api";
+import api, { setBearerToken } from "../services/api";
 import { useAuthStore, useUser } from "../store/authStore";
 
 type RecordingScreenProps = {
@@ -141,11 +141,11 @@ export default function RecordingScreen({ navigation }: RecordingScreenProps) {
 
     try {
       // Get the JWT token from the session
-      const jwtToken = session?.access_token || null;
+      const jwtToken = session?.access_token;
 
-      if (!jwtToken) {
-        throw new Error("Authentication token missing");
-      }
+      if (!jwtToken) throw new Error("Authentication token missing");
+      // Configure our API client to send the Bearer token on all requests
+      setBearerToken(jwtToken);
 
       // Process the recording with our API using the user ID
       setCurrentStep("uploading");
@@ -166,12 +166,8 @@ export default function RecordingScreen({ navigation }: RecordingScreenProps) {
       setCurrentStep("saving");
       setProcessingProgress("Saving your note...");
 
-      // Ensure proper Authorization header with the token
-      const result = await api.processRecording(
-        recordingUri,
-        user.id,
-        jwtToken
-      );
+      // Call our unified processRecording (token already set)
+      const result = await api.processRecording(recordingUri);
 
       setIsProcessing(false);
       setRecordingDuration(0);

@@ -1,15 +1,38 @@
 import axios from "axios";
 import { Note } from "../types";
 import Constants from "expo-constants";
-import supabase from "../supabaseClient";
+import * as FileSystem from "expo-file-system";
+import { Platform } from "react-native";
 
-// Set the API base URL based on environment
-const baseURL = Constants.expoConfig?.extra?.apiUrl || "http://localhost:3000";
+// Set the API base URL based on environment and platform
+const defaultHost = Platform.OS === "android" ? "10.0.2.2" : "localhost";
+const defaultApiUrl = `http://${defaultHost}:3000`;
+// Read API URL from EAS expoConfig or from Expo Go manifest2/manifest, then default
+const expoExtra = Constants.expoConfig?.extra as { apiUrl?: string };
+const manifest2Extra = (Constants.manifest2 as any)?.extra as {
+  apiUrl?: string;
+};
+const manifestExtra = (Constants.manifest as any)?.extra as { apiUrl?: string };
+// const baseURL =
+//   expoExtra?.apiUrl ||
+//   manifest2Extra?.apiUrl ||
+//   manifestExtra?.apiUrl ||
+//   defaultApiUrl;
+const baseURL = "https://www.thoughts2action.com";
 
 const api = axios.create({
   baseURL,
-  timeout: 30000, // 30 seconds for transcription requests
+  timeout: 30000, // 30 seconds for requests
 });
+
+// Allow setting the Bearer token once for all requests
+export function setBearerToken(token?: string) {
+  if (token) {
+    api.defaults.headers.common["Authorization"] = `Bearer ${token}`;
+  } else {
+    delete api.defaults.headers.common["Authorization"];
+  }
+}
 
 // Define the NoteAnalysis interface
 export interface NoteAnalysis {
@@ -17,39 +40,16 @@ export interface NoteAnalysis {
   suggestedTag: string;
 }
 
-// Helper function to create authorization headers
-const getAuthHeaders = (
-  jwtToken: string | null,
-  contentType = "application/json"
-) => {
-  if (!jwtToken) {
-    console.warn("[API] No JWT token provided for request");
-    throw new Error("Authentication token missing");
-  }
-
-  return {
-    Authorization: `Bearer ${jwtToken}`,
-    "Content-Type": contentType,
-  };
-};
-
 export default {
   /**
-   * Get all notes for a user
+   * Get all notes for the authenticated user
    */
-  async getNotes(userId: string, jwtToken: string | null): Promise<Note[]> {
+  async getNotes(): Promise<Note[]> {
     try {
-      console.log(`[API] Getting notes for user: ${userId}`);
-      console.log(`[API] JWT token available: ${jwtToken ? "yes" : "no"}`);
-
-      const headers = getAuthHeaders(jwtToken);
-
-      const response = await api.get(`/api/notes?user_id=${userId}`, {
-        headers,
-      });
+      console.log("[API] Fetching notes...");
+      const response = await api.get("/api/notes");
 
       const notes = response.data?.data || [];
-      console.log(`[API] Successfully fetched ${notes.length} notes`);
       return notes;
     } catch (error) {
       console.error("[API] Error getting notes:", error);
@@ -58,90 +58,40 @@ export default {
   },
 
   /**
-   * Upload audio recording to server
+   * Upload audio recording to server using native streaming
    */
   async uploadRecording(
-    audioUri: string,
-    userId: string,
-    jwtToken: string | null
+    audioUri: string
   ): Promise<{ filename: string; uploadUrl: string }> {
-    try {
-      console.log(`[API] Uploading recording for user: ${userId}`);
-      console.log(`[API] JWT token available: ${jwtToken ? "yes" : "no"}`);
-      console.log(`[API] Audio URI: ${audioUri}`);
-
-      // Get auth headers but we'll use custom headers for fetch
-      const authHeaders = getAuthHeaders(jwtToken);
-
-      // First, fetch the file content
-      const response = await fetch(audioUri);
-      if (!response.ok) {
-        throw new Error(`Failed to fetch audio file from ${audioUri}`);
-      }
-
-      // Get the file content as a blob
-      const audioBlob = await response.blob();
-      console.log(
-        `[API] Got audio file as blob, size: ${audioBlob.size} bytes`
-      );
-
-      // Create a custom endpoint for uploading as binary data
-      const uploadResponse = await fetch(`${baseURL}/api/upload-audio`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "audio/m4a",
-          Authorization: authHeaders.Authorization,
-          "X-User-ID": userId,
-        },
-        body: audioBlob,
-      });
-
-      // Handle response
-      if (!uploadResponse.ok) {
-        const errorText = await uploadResponse.text();
-        console.error(
-          `[API] Upload failed with status: ${uploadResponse.status}`,
-          errorText
-        );
-        throw new Error(`Upload failed with status: ${uploadResponse.status}`);
-      }
-
-      const responseData = await uploadResponse.json();
-      console.log(
-        "[API] Successfully uploaded recording:",
-        responseData.filename
-      );
-      return {
-        filename: responseData.filename,
-        uploadUrl: responseData.uploadUrl,
-      };
-    } catch (error) {
-      console.error("[API] Error uploading recording:", error);
-      throw error;
+    // Stream upload natively via Expo FileSystem
+    const bearer = api.defaults.headers.common["Authorization"];
+    if (!bearer || typeof bearer !== "string") {
+      throw new Error("Bearer token not set");
     }
+    const uploadUrl = `${baseURL}/api/upload`;
+    const result = await FileSystem.uploadAsync(uploadUrl, audioUri, {
+      httpMethod: "POST",
+      headers: {
+        "Content-Type": "audio/m4a",
+        Authorization: bearer,
+      },
+    });
+    if (result.status !== 200) {
+      throw new Error(`Upload failed: ${result.status} ${result.body}`);
+    }
+    return JSON.parse(result.body) as { filename: string; uploadUrl: string };
   },
 
   /**
    * Transcribe audio and return text
    */
-  async transcribeAudio(
-    filename: string,
-    userId: string,
-    jwtToken: string | null
-  ): Promise<string> {
+  async transcribeAudio(filename: string): Promise<string> {
     try {
-      console.log(`[API] Transcribing audio for user: ${userId}`);
-      console.log(`[API] JWT token available: ${jwtToken ? "yes" : "no"}`);
+      console.log("[API] Transcribing audio...");
       console.log(`[API] Filename: ${filename}`);
 
-      const headers = getAuthHeaders(jwtToken);
-
-      // First check if we have an uploadUrl from a direct upload
       let uploadUrl = null;
-
-      // The filename could be an actual filename or it could contain the uploadUrl
       if (filename && filename.includes("uploadUrl=")) {
-        // Extract uploadUrl from the filename if it's embedded
         try {
           const params = new URLSearchParams(filename.split("?")[1]);
           uploadUrl = params.get("uploadUrl");
@@ -153,17 +103,11 @@ export default {
         }
       }
 
-      const response = await api.post(
-        "/api/transcribe",
-        {
-          filename,
-          uploadUrl, // Pass uploadUrl if we have it
-          user_id: userId,
-        },
-        { headers }
-      );
+      const response = await api.post("/api/transcribe", {
+        filename,
+        uploadUrl,
+      });
 
-      // Response may have either 'transcription' or 'text' field
       const transcription =
         response.data.transcription || response.data.text || "";
       console.log(
@@ -180,26 +124,14 @@ export default {
   /**
    * Analyze transcription and return note analysis
    */
-  async analyzeSummary(
-    text: string,
-    userId: string,
-    jwtToken: string | null
-  ): Promise<NoteAnalysis> {
+  async analyzeSummary(text: string): Promise<NoteAnalysis> {
     try {
-      console.log(`[API] Analyzing text for user: ${userId}`);
-      console.log(`[API] JWT token available: ${jwtToken ? "yes" : "no"}`);
+      console.log("[API] Analyzing text...");
 
-      const headers = getAuthHeaders(jwtToken);
-
-      const response = await api.post(
-        "/api/analyze",
-        { text, user_id: userId },
-        { headers }
-      );
+      const response = await api.post("/api/analyze", { text });
 
       console.log("[API] Successfully analyzed text");
 
-      // Handle potential field name variations
       const summary = Array.isArray(response.data.summary)
         ? response.data.summary
         : [];
@@ -216,14 +148,11 @@ export default {
   /**
    * Save a note to the database
    */
-  async saveNote(note: Partial<Note>, jwtToken: string | null): Promise<Note> {
+  async saveNote(note: Partial<Note>): Promise<Note> {
     try {
-      console.log("[API] Saving note:", note.title);
-      console.log(`[API] JWT token available: ${jwtToken ? "yes" : "no"}`);
+      console.log("[API] Saving note...");
 
-      const headers = getAuthHeaders(jwtToken);
-
-      const response = await api.post("/api/notes", note, { headers });
+      const response = await api.post("/api/notes", note);
 
       console.log("[API] Successfully saved note:", response.data.id);
       return response.data;
@@ -236,24 +165,11 @@ export default {
   /**
    * Delete a note from the database
    */
-  async deleteNote(
-    noteId: string,
-    userId: string,
-    jwtToken: string | null
-  ): Promise<void> {
+  async deleteNote(noteId: string): Promise<void> {
     try {
-      console.log(`[API] Deleting note: ${noteId}`);
-      console.log(`[API] JWT token available: ${jwtToken ? "yes" : "no"}`);
+      console.log("[API] Deleting note...");
 
-      const headers = getAuthHeaders(jwtToken);
-
-      await api.delete(`/api/notes`, {
-        headers,
-        data: {
-          id: noteId,
-          user_id: userId,
-        },
-      });
+      await api.delete("/api/notes", { data: { id: noteId } });
 
       console.log("[API] Successfully deleted note");
     } catch (error) {
@@ -265,25 +181,13 @@ export default {
   /**
    * Process a recording end-to-end (upload, transcribe, analyze, and save)
    */
-  async processRecording(
-    audioUri: string,
-    userId: string,
-    jwtToken: string | null
-  ): Promise<{ tag: string }> {
+  async processRecording(audioUri: string): Promise<{ tag: string }> {
     try {
-      console.log(`[API] Processing recording for user: ${userId}`);
-      console.log(`[API] JWT token available: ${jwtToken ? "yes" : "no"}`);
-
-      // Validate token once at the beginning - getAuthHeaders will throw if token is missing
-      getAuthHeaders(jwtToken);
+      console.log("[API] Processing recording...");
 
       // 1. Upload recording
       console.log("[API] Step 1: Uploading recording...");
-      const { filename, uploadUrl } = await this.uploadRecording(
-        audioUri,
-        userId,
-        jwtToken
-      );
+      const { filename, uploadUrl } = await this.uploadRecording(audioUri);
       console.log("[API] Upload complete with filename:", filename);
 
       // Create a parameterized filename if we have an uploadUrl
@@ -293,37 +197,25 @@ export default {
 
       // 2. Transcribe audio
       console.log("[API] Step 2: Transcribing audio...");
-      const transcription = await this.transcribeAudio(
-        transcriptionId,
-        userId,
-        jwtToken
-      );
+      const transcription = await this.transcribeAudio(transcriptionId);
       console.log(
         "[API] Transcription complete, length:",
         transcription.length
       );
 
       // 3. Analyze the transcription
-      console.log("[API] Step 3: Analyzing the transcription...");
-      const analysis = await this.analyzeSummary(
-        transcription,
-        userId,
-        jwtToken
-      );
+      console.log("[API] Step 3: Analyzing transcription...");
+      const analysis = await this.analyzeSummary(transcription);
       console.log("[API] Analysis complete with tag:", analysis.suggestedTag);
 
       // 4. Save the note
       console.log("[API] Step 4: Saving the note...");
-      const note = await this.saveNote(
-        {
-          title: `Journal Entry - ${new Date().toLocaleDateString()}`,
-          content: transcription,
-          summary: analysis.summary.join(" "),
-          tag: analysis.suggestedTag,
-          user_id: userId,
-        },
-        jwtToken
-      );
+      const note = await this.saveNote({
+        title: `Journal Entry - ${new Date().toLocaleDateString()}`,
+        content: transcription,
+        summary: analysis.summary.join(" "),
+        tag: analysis.suggestedTag,
+      });
       console.log("[API] Note saved with ID:", note.id);
 
       return { tag: note.tag || analysis.suggestedTag || "General" };
